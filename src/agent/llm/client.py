@@ -43,8 +43,7 @@ def _parse(system: str, user: str, schema: type[T], *, examples: list[tuple[str,
     for u, a in examples or []:
         messages += [{"role": "user", "content": u}, {"role": "assistant", "content": a}]
     messages.append({"role": "user", "content": user})
-    resp = _client().beta.chat.completions.parse(model=_model(), messages=messages, response_format=schema,
-                                                 temperature=0)
+    resp = _client().beta.chat.completions.parse(model=_model(), messages=messages, response_format=schema)
     parsed = resp.choices[0].message.parsed
     if parsed is None:
         raise RuntimeError("LLM refused or returned no parse")
