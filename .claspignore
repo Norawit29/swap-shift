@@ -2,4 +2,6 @@
 !Code.gs
 !lib.gs
 !setup.gs
+!app.gs
+!app.html
 !appsscript.json

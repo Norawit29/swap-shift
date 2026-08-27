@@ -6,8 +6,36 @@
 var THAI_MONTHS_ = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
-/** เวรที่แลกได้ (block ละ 8 ชม.) — ไม่รวม conference */
-var SWAPPABLE_SHIFTS_ = ['8.00 - 16.00', 'On floor 1-2', '16.00 - 24.00', '0.00 - 8.00'];
+/**
+ * เวรที่แลกได้ (block ละ 8 ชม.) — label ที่ผู้ใช้เห็นใน Form/อีเมล
+ * เวรเช้ามี 2 คน: (1) = แถว '8.00 - 16.00', (2) = แถว 'On floor 1-2' ในตาราง
+ */
+var SWAPPABLE_SHIFTS_ = ['8.00 - 16.00 (1)', '8.00 - 16.00 (2)', '16.00 - 24.00', '0.00 - 8.00'];
+
+/** label ใน Form → label แถวในตาราง (key = normLabel_) */
+var SHIFT_ROW_MAP_ = {
+  '8.00-16.00(1)': '8.00 - 16.00',
+  '8.00-16.00(2)': 'On floor 1-2',
+  '16.00-24.00': '16.00 - 24.00',
+  '0.00-8.00': '0.00 - 8.00',
+  // รองรับ label เก่า / พิมพ์ตรงกับแถว
+  '8.00-16.00': '8.00 - 16.00',
+  'onfloor1-2': 'On floor 1-2'
+};
+
+/** label ใน Form → label แถวในตาราง หรือ null ถ้าแลกไม่ได้ */
+function shiftRowLabel_(formLabel) {
+  return SHIFT_ROW_MAP_[normLabel_(formLabel)] || null;
+}
+
+/** label แถวในตาราง → label ที่แสดงผล */
+function shiftDisplayLabel_(rowLabel) {
+  var n = normLabel_(rowLabel);
+  for (var i = 0; i < SWAPPABLE_SHIFTS_.length; i++) {
+    if (normLabel_(SHIFT_ROW_MAP_[normLabel_(SWAPPABLE_SHIFTS_[i])]) === n) return SWAPPABLE_SHIFTS_[i];
+  }
+  return rowLabel;
+}
 
 /** สะกดชื่อเดือนแบบอื่นที่พบใน tab จริง */
 var THAI_MONTH_ALIASES_ = { 'กรกฎาคม': ['กรกฏาคม'] };
@@ -157,9 +185,9 @@ function findShiftInGrid_(labels, grid, day, shiftLabel, expectDow) {
   return { error: 'ไม่พบแถวเวร "' + shiftLabel + '" ในสัปดาห์ของวันที่ ' + day };
 }
 
-/** key ระบุเวร 1 block: 'YYYY-MM-DD|normLabel' */
+/** key ระบุเวร 1 block: 'YYYY-MM-DD|normLabel ของแถวในตาราง' (label form กับ label แถว ให้ key เดียวกัน) */
 function shiftKey_(date, label) {
-  return fmtDate_(date) + '|' + normLabel_(label);
+  return fmtDate_(date) + '|' + normLabel_(shiftRowLabel_(label) || label);
 }
 
 /** ชื่อเดือนทุกแบบสะกดสำหรับ match ชื่อ tab */
@@ -204,11 +232,12 @@ function readShiftSlots_(named, n, dateKeys, shiftKeys) {
     if (!ds || !sh) return { error: 'ช่องที่ ' + i + ' ต้องกรอกทั้งวันที่และเวร' };
     var d = parseFormDate_(ds);
     if (!d) return { error: 'ช่องที่ ' + i + ' วันที่ไม่ถูกต้อง: ' + ds };
-    if (SWAPPABLE_SHIFTS_.map(normLabel_).indexOf(normLabel_(sh)) < 0) return { error: 'ช่องที่ ' + i + ' เวร "' + sh + '" แลกไม่ได้' };
-    var k = shiftKey_(d, sh);
+    var rowLabel = shiftRowLabel_(sh);
+    if (!rowLabel) return { error: 'ช่องที่ ' + i + ' เวร "' + sh + '" แลกไม่ได้' };
+    var k = shiftKey_(d, rowLabel);
     if (seen[k]) return { error: 'ช่องที่ ' + i + ' ซ้ำกับช่องก่อนหน้า' };
     seen[k] = true;
-    out.push({ date: d, shift: sh });
+    out.push({ date: d, shift: shiftDisplayLabel_(rowLabel) });
   }
   return out;
 }
@@ -239,7 +268,7 @@ function nv_(named, keys) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    THAI_MONTHS_: THAI_MONTHS_, SWAPPABLE_SHIFTS_: SWAPPABLE_SHIFTS_, monthNameVariants_: monthNameVariants_,
+    THAI_MONTHS_: THAI_MONTHS_, SWAPPABLE_SHIFTS_: SWAPPABLE_SHIFTS_, shiftRowLabel_: shiftRowLabel_, shiftDisplayLabel_: shiftDisplayLabel_, monthNameVariants_: monthNameVariants_,
     shiftKey_: shiftKey_, serializeShifts_: serializeShifts_, parseShifts_: parseShifts_, shiftsText_: shiftsText_, readShiftSlots_: readShiftSlots_,
     parseFormDate_: parseFormDate_, fmtDate_: fmtDate_, fmtDateThai_: fmtDateThai_, thaiMonthYear_: thaiMonthYear_,
     normLabel_: normLabel_, baseName_: baseName_, cellHasName_: cellHasName_, replaceName_: replaceName_,

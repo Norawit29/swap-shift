@@ -26,7 +26,7 @@ npx clasp push
 
 ## กฎ
 
-- แลกได้เฉพาะ `8.00 - 16.00`, `On floor 1-2`, `16.00 - 24.00`, `0.00 - 8.00` (block 8 ชม. แลกข้ามช่วงได้)
+- แลกได้เฉพาะ `8.00 - 16.00 (1)`, `8.00 - 16.00 (2)` (= แถว On floor 1-2), `16.00 - 24.00`, `0.00 - 8.00` (block 8 ชม. แลกข้ามช่วงได้)
 - หลายเวรต่อคำขอ (สูงสุด 4/ฝั่ง) อีกฝ่ายตกลงครั้งเดียว → เขียนทุกช่องพร้อมกัน
 - ฝั่งอีกฝ่ายว่าง = ฝากเวร
 - state: `pending_b → (pending_head) → committed | rejected | expired | error`
@@ -35,7 +35,10 @@ npx clasp push
 
 - `Code.gs` flow หลัก (onFormSubmit / doGet / commitSwap_ / expirePending)
 - `lib.gs` pure functions — unit test ได้ใน node
+- `app.gs` + `app.html` web app: magic-link login, ตารางรวม (แบบ Excel), เวรฉัน, ประวัติ, ส่งคำขอโดยแตะช่อง
 - `setup.gs` setupAll / setupForm / setupTriggers / setWebAppUrl / debugLocate
 - `test/` node --test + fixtures (รวม export จากตารางจริง)
+
+Local UI preview: `npm run preview` → http://localhost:3456
 
 รายละเอียด + checklist ทดสอบ: [SETUP.md](SETUP.md) — ผลทดสอบ: [TEST-LOG.md](TEST-LOG.md)

@@ -6,16 +6,16 @@ const path = require('path');
 const vm = require('vm');
 
 test('lib.gs + Code.gs + setup.gs parse ได้ และ helper ที่อ้างถึงมีจริง', () => {
-  const ctx = { console, Number, Date, Math, String, JSON, Logger: { log() {} } };
+  const ctx = { console, Number, Date, Math, String, JSON, Logger: { log() {} }, Object };
   vm.createContext(ctx);
-  for (const f of ['lib.gs', 'Code.gs', 'setup.gs']) {
+  for (const f of ['lib.gs', 'Code.gs', 'setup.gs', 'app.gs']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), ctx, { filename: f });
   }
   // ทุก identifier ที่ลงท้าย _( (helper convention) ต้องถูก define
-  const src = ['lib.gs', 'Code.gs', 'setup.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
+  const src = ['lib.gs', 'Code.gs', 'setup.gs', 'app.gs'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
   const called = new Set([...src.matchAll(/\b([A-Za-z]\w*_)\(/g)].map(m => m[1]));
   const missing = [...called].filter(n => typeof ctx[n] !== 'function');
   assert.deepEqual(missing, [], 'helper ไม่ถูก define: ' + missing.join(', '));
-  for (const fn of ['onFormSubmit', 'doGet', 'commitSwap_', 'expirePending', 'setupAll', 'setupForm', 'setupTriggers', 'setWebAppUrl'])
+  for (const fn of ['onFormSubmit', 'doGet', 'commitSwap_', 'expirePending', 'setupAll', 'setupForm', 'setupTriggers', 'setWebAppUrl', 'processSubmission_', 'apiSubmit', 'apiSchedule', 'apiRequestLogin'])
     assert.equal(typeof ctx[fn], 'function', fn);
 });

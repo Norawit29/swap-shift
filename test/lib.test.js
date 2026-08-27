@@ -143,9 +143,23 @@ test('readShiftSlots_: หลาย slot, ข้ามช่องว่าง, 
   assert.equal(ok.length, 2);
   assert.equal(ok[1].shift, '0.00 - 8.00');
   assert.ok(L.readShiftSlots_({ 'วันที่ #1': ['2026-09-10'], 'เวร #1': ['conference 3-4'] }, 4, dk, sk).error);
+  // label (1)/(2) → เก็บเป็น label แสดงผล และ key ตรงกับแถวในตาราง
+  const morn = L.readShiftSlots_({ 'วันที่ #1': ['2026-09-10'], 'เวร #1': ['8.00 - 16.00 (2)'], 'วันที่ #2': ['2026-09-10'], 'เวร #2': ['On floor 1-2'] }, 4, dk, sk);
+  assert.ok(morn.error, '(2) กับ On floor 1-2 คือช่องเดียวกัน → ซ้ำ');
+  assert.equal(L.readShiftSlots_({ 'วันที่ #1': ['2026-09-10'], 'เวร #1': ['On floor 1-2'] }, 4, dk, sk)[0].shift, '8.00 - 16.00 (2)');
   assert.ok(L.readShiftSlots_({ 'วันที่ #1': ['2026-09-10'], 'เวร #1': [''] }, 4, dk, sk).error);
   assert.ok(L.readShiftSlots_({ 'วันที่ #1': ['2026-09-10'], 'เวร #1': ['8.00 - 16.00'], 'วันที่ #2': ['10/09/2026'], 'เวร #2': ['8.00-16.00'] }, 4, dk, sk).error, 'ซ้ำ');
   assert.equal(L.readShiftSlots_({}, 4, dk, sk).length, 0);
+});
+
+test('shiftRowLabel_ / shiftDisplayLabel_: เวรเช้า (1)/(2) ↔ แถวในตาราง', () => {
+  assert.equal(L.shiftRowLabel_('8.00 - 16.00 (1)'), '8.00 - 16.00');
+  assert.equal(L.shiftRowLabel_('8.00-16.00 (2)'), 'On floor 1-2');
+  assert.equal(L.shiftRowLabel_('16.00 - 24.00'), '16.00 - 24.00');
+  assert.equal(L.shiftRowLabel_('conference 3-4'), null);
+  assert.equal(L.shiftDisplayLabel_('On floor 1-2'), '8.00 - 16.00 (2)');
+  assert.equal(L.shiftDisplayLabel_('0.00 - 8.00'), '0.00 - 8.00');
+  assert.equal(L.shiftKey_(L.parseFormDate_('2026-09-10'), '8.00 - 16.00 (2)'), '2026-09-10|onfloor1-2');
 });
 
 test('monthNameVariants_ รองรับ กรกฏาคม (ฏ) ที่ใช้ใน tab จริง', () => {

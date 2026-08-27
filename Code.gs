@@ -43,7 +43,7 @@ var Q = {
 var LOG_COLS = ['swap_id', 'created_at', 'updated_at', 'status', 'type',
   'a_name', 'a_email', 'a_shifts',
   'b_name', 'b_email', 'b_shifts',
-  'note', 'token_b', 'token_head', 'head_email', 'sheets', 'message'];
+  'note', 'token_b', 'token_head', 'head_email', 'sheets', 'message', 'source'];
 
 var ROSTER_COLS = ['ชื่อในตาราง', 'อีเมล', 'บทบาท'];
 
@@ -54,14 +54,22 @@ var THAI_MONTHS_SHORT_ = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 
 /** Installable trigger: Spreadsheet ▸ onFormSubmit (ติดตั้งโดย setupTriggers) */
 function onFormSubmit(e) {
   var named = (e && e.namedValues) || {};
+  processSubmission_(named, nv_(named, Q.EMAIL).toLowerCase(), MAX_SLOTS, 'form');
+}
+
+/**
+ * จุดร่วมของ Form และ web app: สร้างคำขอจาก namedValues (key ตาม Q) + อีเมลที่ยืนยันแล้ว
+ * @return {{swap_id, status, message}} แถว log ที่สร้าง
+ */
+function processSubmission_(named, verifiedEmail, maxSlots, source) {
   var req = {
-    email: nv_(named, Q.EMAIL).toLowerCase(),
+    email: String(verifiedEmail || '').toLowerCase(),
     aName: baseName_(nv_(named, [Q.A_NAME])),
     bName: baseName_(nv_(named, [Q.B_NAME])),
     note: nv_(named, [Q.NOTE])
   };
-  var aSlots = readShiftSlots_(named, MAX_SLOTS, function (i) { return [Q.A_DATE(i)]; }, function (i) { return [Q.A_SHIFT(i)]; });
-  var bSlots = readShiftSlots_(named, MAX_SLOTS, function (i) { return [Q.B_DATE(i)]; }, function (i) { return [Q.B_SHIFT(i)]; });
+  var aSlots = readShiftSlots_(named, maxSlots, function (i) { return [Q.A_DATE(i)]; }, function (i) { return [Q.A_SHIFT(i)]; });
+  var bSlots = readShiftSlots_(named, maxSlots, function (i) { return [Q.B_DATE(i)]; }, function (i) { return [Q.B_SHIFT(i)]; });
   req.aShifts = aSlots.error ? [] : aSlots;
   req.bShifts = bSlots.error ? [] : bSlots;
   req.slotError = aSlots.error ? ('เวรของคุณ: ' + aSlots.error) : (bSlots.error ? ('เวรของอีกฝ่าย: ' + bSlots.error) : '');
@@ -79,18 +87,19 @@ function onFormSubmit(e) {
       type: req.isSwap ? 'swap' : 'give',
       a_name: req.aName, a_email: req.email, a_shifts: serializeShifts_(req.aShifts),
       b_name: req.bName, b_email: v.bEmail || '', b_shifts: serializeShifts_(req.bShifts),
-      note: req.note, token_b: '', token_head: '', head_email: '', sheets: (v.sheets || []).join(', '), message: ''
+      note: req.note, token_b: '', token_head: '', head_email: '', sheets: (v.sheets || []).join(', '),
+      message: '', source: source || 'form'
     };
     if (v.error) {
       row.status = 'error';
       row.message = v.error;
       appendLog_(row);
-      if (req.email) {
+      if (req.email && source !== 'web') {   // web ได้ผลทันทีบนหน้าจอ ไม่ต้องส่งอีเมล
         sendMail_(req.email, '[ER แลกเวร] คำขอ ' + id + ' ไม่ผ่านการตรวจสอบ',
           '<p>คำขอของคุณไม่ผ่านการตรวจสอบ:</p><p><b>' + esc_(v.error) + '</b></p>' + summaryHtml_(row) +
-          '<p>กรุณาตรวจสอบตารางเวรแล้วส่ง Form ใหม่</p>');
+          '<p>กรุณาตรวจสอบตารางเวรแล้วส่งใหม่</p>');
       }
-      return;
+      return row;
     }
     row.status = 'pending_b';
     row.token_b = token_();
@@ -103,6 +112,7 @@ function onFormSubmit(e) {
       '<p style="color:#666">ลิงก์ใช้ได้ครั้งเดียว และหมดอายุใน ' + esc_(cfg_('PENDING_DAYS')) + ' วัน — ถ้าไม่ตอบ คำขอจะถูกยกเลิกอัตโนมัติ</p>');
     sendMail_(row.a_email, '[ER แลกเวร] ส่งคำขอ ' + id + ' ให้ ' + row.b_name + ' แล้ว',
       '<p>ระบบส่งคำขอของคุณให้ ' + esc_(row.b_name) + ' แล้ว รอการตอบรับ</p>' + summaryHtml_(row));
+    return row;
   } finally {
     lock.releaseLock();
   }
@@ -170,6 +180,7 @@ function locateOwned_(name, shifts, what) {
 function doGet(e) {
   var p = (e && e.parameter) || {};
   var id = String(p.id || ''), t = String(p.t || ''), action = String(p.a || ''), role = String(p.role || 'b');
+  if (!id && !t && !action) return serveApp_(p);   // ไม่มี param = เปิด web app (app.gs)
   if (!id || !t || (action !== 'approve' && action !== 'reject')) return page_('ลิงก์ไม่ถูกต้อง', 'พารามิเตอร์ไม่ครบ');
 
   // ถือ lock เดียวกับ onFormSubmit/expirePending — กัน B กดสองครั้งเร็วๆ หรือชนกับ commit อื่น
@@ -276,6 +287,7 @@ function expirePending(daysOverride) {
         '<p>คำขอนี้ไม่ได้รับการตอบรับภายใน ' + days + ' วัน ระบบยกเลิกให้แล้ว ตารางเวรไม่ถูกแก้</p>' + summaryHtml_(row));
       n++;
     });
+    cleanupSessions_();
     Logger.log('expirePending: %s expired', n);
     return n;
   } finally {
@@ -318,11 +330,13 @@ function monthSheet_(date) {
  */
 function locateShift_(date, shiftLabel) {
   if (!date) return { error: 'วันที่ไม่ถูกต้อง' };
+  var rowLabel = shiftRowLabel_(shiftLabel);
+  if (!rowLabel) return { error: 'เวร "' + shiftLabel + '" แลกไม่ได้' };
   var sh = monthSheet_(date);
   if (!sh) return { error: 'ไม่พบ tab ของเดือน ' + thaiMonthYear_(date).month + ' ' + thaiMonthYear_(date).yearBE };
   var grid = sh.getDataRange().getDisplayValues();
   var labels = grid.map(function (r) { return r[1]; });
-  var hit = findShiftInGrid_(labels, grid, date.getDate(), shiftLabel, dowMon0_(date));
+  var hit = findShiftInGrid_(labels, grid, date.getDate(), rowLabel, dowMon0_(date));
   if (hit.error) return { error: hit.error + ' (tab ' + sh.getName() + ')' };
   return { sheetName: sh.getName(), row: hit.r + 1, col: hit.c + 1, value: grid[hit.r][hit.c], key: shiftKey_(date, shiftLabel) };
 }
@@ -414,34 +428,59 @@ function link_(base, id, token, action, role) {
 
 function sendMail_(to, subject, html, cc) {
   if (!to) return;
-  var opt = { to: to, subject: subject, htmlBody: html + '<hr><p style="color:#999;font-size:12px">ER แลกเวร — อีเมลอัตโนมัติ กรุณาอย่าตอบกลับ</p>', name: 'ER แลกเวร' };
+  var footer = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;border-collapse:collapse">' +
+    '<tr><td style="padding:18px 8px 28px;border-top:1px solid #e3e8ee;font-family:Sarabun,Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#8a97a8;text-align:center">' +
+    '<span style="color:#0f766e;font-weight:700">ER แลกเวร</span> &middot; อีเมลอัตโนมัติ กรุณาอย่าตอบกลับ</td></tr></table>';
+  var opt = { to: to, subject: subject, htmlBody: '<div style="background:#f4f7fa;padding:8px 0">' + html + footer + '</div>', name: 'ER แลกเวร' };
   if (cc) opt.cc = cc;
   try { MailApp.sendEmail(opt); } catch (err) { Logger.log('sendMail failed to %s: %s', to, err); }
 }
 
 function shiftListHtml_(str) {
   var list = parseShifts_(str);
-  if (!list.length) return '<i>(ไม่มี)</i>';
-  return '<ul style="margin:0;padding-left:18px">' + list.map(function (x) {
-    return '<li>' + esc_(fmtDateThai_(x.date)) + ' — ' + esc_(x.shift) + '</li>';
-  }).join('') + '</ul>';
+  var font = 'font-family:Sarabun,Arial,Helvetica,sans-serif;';
+  if (!list.length) return '<span style="' + font + 'font-size:14px;color:#9aa7b5;font-style:italic">(ไม่มี)</span>';
+  return '<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">' + list.map(function (x) {
+    return '<tr><td style="padding:4px 0">' +
+      '<div style="' + font + 'font-size:14px;line-height:20px;color:#1e293b;font-weight:600">' + esc_(fmtDateThai_(x.date)) + '</div>' +
+      '<div style="' + font + 'font-size:13px;line-height:18px;color:#475569">&#9201; ' + esc_(x.shift) + '</div></td></tr>';
+  }).join('') + '</table>';
 }
 
 function summaryHtml_(row) {
   var give = row.type === 'give';
-  var h = '<table cellpadding="6" style="border-collapse:collapse;border:1px solid #ccc">' +
-    '<tr><td><b>รหัส</b></td><td>' + esc_(row.swap_id) + '</td></tr>' +
-    '<tr><td><b>ประเภท</b></td><td>' + (give ? 'ฝากเวร (ยกให้)' : 'แลกเวร') + '</td></tr>' +
-    '<tr><td valign="top"><b>เวรของ ' + esc_(row.a_name) + '</b>' + (give ? '<br><small>→ ยกให้ ' + esc_(row.b_name) + '</small>' : '<br><small>→ ไปเป็นของ ' + esc_(row.b_name) + '</small>') + '</td><td>' + shiftListHtml_(row.a_shifts) + '</td></tr>';
-  if (!give) h += '<tr><td valign="top"><b>เวรของ ' + esc_(row.b_name) + '</b><br><small>→ ไปเป็นของ ' + esc_(row.a_name) + '</small></td><td>' + shiftListHtml_(row.b_shifts) + '</td></tr>';
-  if (row.note) h += '<tr><td><b>หมายเหตุ</b></td><td>' + esc_(row.note) + '</td></tr>';
+  var font = 'font-family:Sarabun,Arial,Helvetica,sans-serif;';
+  var col = function (name, arrowText, target, shifts) {
+    return '<td width="50%" valign="top" style="padding:14px 16px;vertical-align:top;background:#ffffff">' +
+      '<div style="' + font + 'font-size:11px;line-height:16px;letter-spacing:.6px;text-transform:uppercase;color:#64748b;font-weight:700">เวรของ</div>' +
+      '<div style="' + font + 'font-size:17px;line-height:24px;color:#0f172a;font-weight:700">' + esc_(name) + '</div>' +
+      '<div style="' + font + 'font-size:13px;line-height:18px;color:#0f766e;font-weight:600;margin:2px 0 10px">&#8594; ' + arrowText + ' ' + esc_(target) + '</div>' +
+      shiftListHtml_(shifts) + '</td>';
+  };
+  var h = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:16px auto;border-collapse:separate;border:1px solid #dbe3ec;border-radius:12px;overflow:hidden;background:#ffffff">' +
+    '<tr><td style="padding:14px 16px;background:#f0f7f7;border-bottom:1px solid #dbe3ec">' +
+      '<table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
+      '<td style="' + font + 'font-size:12px;line-height:18px;color:#0f766e;background:#ffffff;border:1px solid #99d5cf;border-radius:6px;padding:2px 8px;font-weight:700;font-family:Menlo,Consolas,monospace">' + esc_(row.swap_id) + '</td>' +
+      '<td style="width:8px"></td>' +
+      '<td style="' + font + 'font-size:12px;line-height:18px;color:#ffffff;background:' + (give ? '#7c3aed' : '#0f766e') + ';border-radius:999px;padding:2px 12px;font-weight:700">' + (give ? 'ฝากเวร (ยกให้)' : 'แลกเวร') + '</td>' +
+      '</tr></table></td></tr>' +
+    '<tr><td style="padding:0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' +
+      col(row.a_name, give ? 'ยกให้' : 'ไปเป็นของ', row.b_name, row.a_shifts);
+  if (!give) h += '<td width="1" style="width:1px;background:#e2e8f0;padding:0"></td>' + col(row.b_name, 'ไปเป็นของ', row.a_name, row.b_shifts);
+  h += '</tr></table></td></tr>';
+  if (row.note) h += '<tr><td style="padding:12px 16px;border-top:1px solid #dbe3ec;background:#fbfcfd;' + font + 'font-size:13px;line-height:19px;color:#475569">' +
+    '<span style="color:#64748b;font-weight:700">หมายเหตุ:</span> ' + esc_(row.note) + '</td></tr>';
   return h + '</table>';
 }
 
 function buttonsHtml_(approveUrl, rejectUrl) {
-  return '<p style="margin:20px 0">' +
-    '<a href="' + approveUrl + '" style="background:#1a8917;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px;margin-right:12px">✔ ตกลงทั้งหมด</a>' +
-    '<a href="' + rejectUrl + '" style="background:#b00;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px">✘ ปฏิเสธ</a></p>';
+  var font = 'font-family:Sarabun,Arial,Helvetica,sans-serif;';
+  var btn = function (url, bg, label) {
+    return '<td style="padding:6px 6px"><a href="' + url + '" style="display:block;background:' + bg + ';color:#ffffff;' + font +
+      'font-size:16px;line-height:24px;font-weight:700;text-align:center;text-decoration:none;padding:14px 22px;border-radius:10px;min-width:150px">' + label + '</a></td>';
+  };
+  return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:20px auto 8px;border-collapse:collapse"><tr>' +
+    btn(approveUrl, '#15803d', '&#10004; ตกลงทั้งหมด') + btn(rejectUrl, '#b91c1c', '&#10008; ปฏิเสธ') + '</tr></table>';
 }
 
 function statusThai_(s) {
@@ -450,9 +489,28 @@ function statusThai_(s) {
 }
 
 function page_(title, body) {
-  var html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>' + esc_(title) + '</title></head><body style="font-family:sans-serif;max-width:560px;margin:40px auto;padding:0 16px">' +
-    '<h2>' + esc_(title) + '</h2><p>' + body + '</p><p style="color:#999;font-size:12px">ER แลกเวร</p></body></html>';
+  var kind = /ปฏิเสธ|ไม่สำเร็จ|ผิดพลาด|ไม่ถูกต้อง|ไม่พบ/.test(title) ? 'error' : (/สำเร็จ|ตอบรับ/.test(title) ? 'success' : 'info');
+  var theme = { success: ['#15803d', '#dcfce7', '&#10004;'], error: ['#b91c1c', '#fee2e2', '&#10008;'], info: ['#64748b', '#e2e8f0', '&#8505;'] }[kind];
+  var html = '<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>' + esc_(title) + '</title>' +
+    '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">' +
+    '<style>' +
+    '*{box-sizing:border-box}html,body{margin:0;padding:0}' +
+    'body{font-family:Sarabun,"Noto Sans Thai",-apple-system,"Segoe UI",Roboto,sans-serif;background:#f4f7fa;color:#1e293b;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px}' +
+    '.brand{font-size:13px;font-weight:700;letter-spacing:.5px;color:#0f766e;margin-bottom:14px}' +
+    '.card{background:#fff;width:100%;max-width:440px;border-radius:16px;box-shadow:0 8px 30px rgba(15,23,42,.08);border:1px solid #e2e8f0;padding:32px 24px;text-align:center}' +
+    '.icon{width:72px;height:72px;border-radius:50%;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:34px;line-height:1;background:' + theme[1] + ';color:' + theme[0] + '}' +
+    'h1{font-size:22px;line-height:1.35;margin:0 0 10px;color:#0f172a;font-weight:700}' +
+    '.body{font-size:15px;line-height:1.7;color:#475569;margin:0;word-break:break-word}' +
+    '.body b{color:#0f172a}' +
+    '.hint{font-size:13px;color:#94a3b8;margin-top:22px;padding-top:16px;border-top:1px solid #eef2f6}' +
+    '@media (max-width:420px){.card{padding:28px 18px}h1{font-size:20px}}' +
+    '</style></head><body>' +
+    '<div class="brand">ER แลกเวร</div>' +
+    '<div class="card" role="status"><div class="icon" aria-hidden="true">' + theme[2] + '</div>' +
+    '<h1>' + esc_(title) + '</h1><p class="body">' + body + '</p>' +
+    '<div class="hint">ปิดหน้านี้ได้เลย — ระบบบันทึกผลแล้ว</div></div>' +
+    '</body></html>';
   return HtmlService.createHtmlOutput(html).setTitle(title);
 }
 
