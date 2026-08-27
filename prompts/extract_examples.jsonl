@@ -1,0 +1,36 @@
+{"kind": "swap", "today": "2026-10-01", "text": "แลกเวรดึก 3 ต.ค. ของศรี กับ เช้า 5 ต.ค. ของบี", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 3, "a_month": "2569-10", "a_shift": "ด", "b_name": "บี", "b_day": 5, "b_month": "2569-10", "b_shift": "ช", "missing": [], "clarifying_question_th": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "ศรียกเวรบ่าย 12 ต.ค. ให้บี", "expected": {"swap_type": "give", "a_name": "ศรี", "a_day": 12, "a_month": "2569-10", "a_shift": "บ", "b_name": "บี", "b_day": null, "b_month": null, "b_shift": null, "missing": [], "clarifying_question_th": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "ขอแลกเวรดึกวันที่ 3 กับเช้าวันที่ 5 ค่ะ", "expected": {"swap_type": "exchange", "a_name": null, "a_day": 3, "a_month": "2569-10", "a_shift": "ด", "b_name": null, "b_day": 5, "b_month": "2569-10", "b_shift": "ช", "missing": ["a_name", "b_name"], "clarifying_question_th": "แลกของใครกับใครคะ"}}
+{"kind": "swap", "today": "2026-10-01", "text": "พี่ศรีแลกกับบี วันที่ 3 กับ 5", "expected": {"swap_type": "exchange", "a_name": "พี่ศรี", "a_day": 3, "a_month": "2569-10", "a_shift": null, "b_name": "บี", "b_day": 5, "b_month": "2569-10", "b_shift": null, "missing": ["a_shift", "b_shift"], "clarifying_question_th": "วันที่ 3 พี่ศรีเวรอะไร และวันที่ 5 บีเวรอะไรคะ"}}
+{"kind": "swap", "today": "2026-10-01", "text": "ศรีแลกเวรดึกกับเช้าของบีนะ", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": null, "a_month": null, "a_shift": "ด", "b_name": "บี", "b_day": null, "b_month": null, "b_shift": "ช", "missing": ["a_day", "b_day"], "clarifying_question_th": "ศรีเวรดึกวันที่เท่าไหร่ และบีเวรเช้าวันที่เท่าไหร่คะ"}}
+{"kind": "swap", "today": "2026-10-01", "text": "แลกเวร ศรี ด 3 / บี ช 5", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 3, "a_month": "2569-10", "a_shift": "ด", "b_name": "บี", "b_day": 5, "b_month": "2569-10", "b_shift": "ช", "missing": [], "clarifying_question_th": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "น้องบีรับเวรดึก 20 ของพี่ศรีไปนะ", "expected": {"swap_type": "give", "a_name": "พี่ศรี", "a_day": 20, "a_month": "2569-10", "a_shift": "ด", "b_name": "น้องบี", "b_day": null, "b_month": null, "b_shift": null, "missing": [], "clarifying_question_th": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "ศรี บ่าย 28 ก.ย. แลก บี ดึก 2 ต.ค.", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 28, "a_month": "2569-09", "a_shift": "บ", "b_name": "บี", "b_day": 2, "b_month": "2569-10", "b_shift": "ด", "missing": [], "clarifying_question_th": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "แลกเวรพรุ่งนี้ของศรี(เช้า) กับ มะรืนของบี(ดึก)", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 2, "a_month": "2569-10", "a_shift": "ช", "b_name": "บี", "b_day": 3, "b_month": "2569-10", "b_shift": "ด", "missing": [], "clarifying_question_th": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "ศรี conference 7 แลกกับ บี เช้า 9", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 7, "a_month": "2569-10", "a_shift": "conference", "b_name": "บี", "b_day": 9, "b_month": "2569-10", "b_shift": "ช", "missing": [], "clarifying_question_th": null}}
+{"kind": "classify", "text": "ok ค่ะ", "expected": {"intent": "confirm_reply"}}
+{"kind": "classify", "text": "ยืนยัน", "expected": {"intent": "confirm_reply"}}
+{"kind": "classify", "text": "ใช่ค่ะ ถูกต้อง", "expected": {"intent": "confirm_reply"}}
+{"kind": "classify", "text": "ยกเลิกค่ะ", "expected": {"intent": "confirm_reply"}}
+{"kind": "classify", "text": "ไม่ใช่ค่ะ", "expected": {"intent": "confirm_reply"}}
+{"kind": "classify", "text": "วันนี้กินข้าวยัง", "expected": {"intent": "other"}}
+{"kind": "classify", "text": "ใครมีเวรพรุ่งนี้บ้าง", "expected": {"intent": "other"}}
+{"kind": "classify", "text": "ขอบคุณค่ะ", "expected": {"intent": "other"}}
+{"kind": "classify", "text": "555", "expected": {"intent": "other"}}
+{"kind": "classify", "text": "ตารางเดือนหน้าออกยัง", "expected": {"intent": "other"}}
+{"kind": "classify", "text": "ประกาศตาราง 2569-10", "expected": {"intent": "command"}}
+{"kind": "classify", "text": "ตรวจตาราง ต.ค.", "expected": {"intent": "command"}}
+{"kind": "classify", "text": "สถานะ", "expected": {"intent": "command"}}
+{"kind": "classify", "text": "ปิดตาราง ก.ย.", "expected": {"intent": "command"}}
+{"kind": "classify", "text": "เปลี่ยนพี่ศรี วันที่ 5 เป็นดึก", "expected": {"intent": "roster_edit"}}
+{"kind": "classify", "text": "บี วันที่ 12 หยุด", "expected": {"intent": "roster_edit"}}
+{"kind": "classify", "text": "ศรี 15 ต.ค. เป็นเช้าแทน", "expected": {"intent": "roster_edit"}}
+{"kind": "classify", "text": "แลกเวรดึก 3 ต.ค. ของศรี กับ เช้า 5 ต.ค. ของบี", "expected": {"intent": "swap_report"}}
+{"kind": "classify", "text": "ศรียกเวรบ่าย 12 ให้บี", "expected": {"intent": "swap_report"}}
+{"kind": "classify", "text": "ขอแลกเวรดึกวันที่ 3 กับเช้าวันที่ 5 ค่ะ", "expected": {"intent": "swap_report"}}
+{"kind": "classify", "text": "บีรับเวรดึกของศรีวันที่ 20 นะคะ", "expected": {"intent": "swap_report"}}
+{"kind": "classify", "text": "ศรี↔บี 3/5", "expected": {"intent": "swap_report"}}
+{"kind": "classify", "text": "พี่ศรีสลับเวรกับบี วันที่ 3 และ 5 ค่ะ", "expected": {"intent": "swap_report"}}
+{"kind": "edit", "today": "2026-10-01", "text": "เปลี่ยนพี่ศรี วันที่ 5 เป็นดึก", "expected": {"target_name": "พี่ศรี", "day": 5, "month": "2569-10", "new_shift": "ด", "missing": [], "clarifying_question_th": null}}
+{"kind": "edit", "today": "2026-10-01", "text": "บี วันที่ 12 หยุด", "expected": {"target_name": "บี", "day": 12, "month": "2569-10", "new_shift": "", "missing": [], "clarifying_question_th": null}}
+{"kind": "edit", "today": "2026-10-01", "text": "ศรีเปลี่ยนเป็นเช้า", "expected": {"target_name": "ศรี", "day": null, "month": null, "new_shift": "ช", "missing": ["day"], "clarifying_question_th": "วันที่เท่าไหร่คะ"}}

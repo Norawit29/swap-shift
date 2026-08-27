@@ -1,0 +1,6 @@
+pyproject.toml
+src/line_swap_agent.egg-info/PKG-INFO
+src/line_swap_agent.egg-info/SOURCES.txt
+src/line_swap_agent.egg-info/dependency_links.txt
+src/line_swap_agent.egg-info/requires.txt
+src/line_swap_agent.egg-info/top_level.txt

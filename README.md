@@ -1,44 +1,64 @@
-# ER แลกเวร (Google Apps Script)
+# LINE Shift-Swap Agent (MVP)
 
-Bound script ของ Sheet `ตารางเวรstaff_ปี2569` — รับคำขอแลกเวรจาก Google Form,
-ตรวจว่าเป็นเจ้าของเวรจริง, ส่งอีเมลให้อีกฝ่ายกด approve, แล้วเขียนลงตารางหลักเอง
+Nurses report swaps as free text in the ward LINE group → bot extracts (OpenAI Structured Outputs) → checks the roster
+(Google Sheet) → reporter confirms → bot writes the cells + audit row. See [PLAN.md](PLAN.md) for the full spec.
 
-## Dev
+## Setup
 
+### 1. Google Sheet (one per ward)
+- Create the spreadsheet with a **CareSync-controlled Google account as owner** (owners bypass protected ranges; head
+  nurse must only be *Editor* so protection is enforceable — PLAN §4/§15).
+- Share **Editor** to the service account email (`client_email` in the JSON) and to the head nurse.
+- Seed tabs: `python scripts/seed_sheet.py <SPREADSHEET_ID> 2569-10` creates `_control`, `_staff`, `_audit` and a demo
+  `2569-10` tab (draft). Fill `_staff` with real names + nicknames.
+
+### 2. LINE OA
+- Create an OA named after the ward, enable **Allow bot to join group chats**, disable auto-reply/greeting.
+- Messaging API: copy channel secret + long-lived access token; set webhook URL `https://<host>/webhook`.
+- Invite the OA into the ward group. Send any message; read the `groupId` (`C…`) from the webhook log and put it in
+  `LINE_ALLOWED_GROUP_IDS` and `SHEET_ID_MAP=<groupId>:<spreadsheetId>`.
+- Head nurse: read their `userId` (`U…`) from the log → `HEAD_NURSE_LINE_IDS`. No onboarding for other nurses.
+
+### 3. Run locally
 ```sh
-npm install
-npm test                       # unit tests (node --test) ของ lib.gs
+uv venv && uv pip install -e ".[dev]"
+cp .env.example .env   # fill in
+uvicorn agent.main:app --reload --port 8080 --app-dir src
+ngrok http 8080        # put https://xxx.ngrok.app/webhook in LINE console
+pytest
 ```
 
-## Deploy
-
+### 4. Deploy (Cloud Run)
 ```sh
-./deploy.sh                 # copy sheet (default) — login → สร้าง bound script → push → deploy
-./deploy.sh <SHEET_ID>      # sheet จริง ตอน cutover
+gcloud run deploy line-swap-agent --source . --region asia-southeast1 --set-env-vars "$(paste -sd, .env)"
 ```
-(หรือ manual: `npx clasp login` → `.clasp.json` จาก `.clasp.json.example` → `npx clasp push`)
+Cron (Cloud Scheduler, POST with `?token=$CRON_TOKEN`): `/cron/expire` every 10 min, `/cron/drift` every 30 min,
+`/cron/go-live` daily 00:05 Asia/Bangkok.
 
-จากนั้นใน Apps Script editor:
+Start with `DRY_RUN=true` for a 1-week shadow run: the bot replies normally but logs intended writes instead of
+touching the Sheet.
 
-1. รัน `setupAll()` ครั้งเดียว (สร้าง Form, Roster/Swap log tab, trigger) — ดู log ได้ URL ของ Form
-2. Deploy ▸ New deployment ▸ Web app (Execute as **Me**, Access **Anyone**) → copy URL
-3. รัน `setWebAppUrl('https://script.google.com/macros/s/.../exec')`
+## Monthly cycle (head nurse, in the group)
+| Command | Effect |
+|---|---|
+| `ตรวจตาราง 2569-10` | parse report: unknown codes / staff, empty rows |
+| `ประกาศตาราง 2569-10` | snapshot `_planned`, protect tab (service account sole editor), status=published, post link |
+| `ปิดตาราง 2569-09` | status=closed, build `_diff`, reply per-person delta |
+| `สถานะ` / `ยกเลิก` | anyone: own pending change |
 
-## กฎ
+Month accepted as `2569-10`, `10/2569`, `ต.ค.`, `ตุลาคม`, `ต.ค. 69`.
 
-- แลกได้เฉพาะ `8.00 - 16.00 (1)`, `8.00 - 16.00 (2)` (= แถว On floor 1-2), `16.00 - 24.00`, `0.00 - 8.00` (block 8 ชม. แลกข้ามช่วงได้)
-- หลายเวรต่อคำขอ (สูงสุด 4/ฝั่ง) อีกฝ่ายตกลงครั้งเดียว → เขียนทุกช่องพร้อมกัน
-- ฝั่งอีกฝ่ายว่าง = ฝากเวร
-- state: `pending_b → (pending_head) → committed | rejected | expired | error`
+## Daily
+"แลกเวรดึก 3 ต.ค. ของศรี กับ เช้า 5 ต.ค. ของบี" → summary + [ยืนยัน] [ยกเลิก] (Quick Reply; typing ยืนยัน/ยกเลิก also
+works). Only the reporter can confirm; 2 h TTL. Mismatch → reply shows the real roster value, no buttons.
+Head nurse single-cell edit: "เปลี่ยนพี่ศรี วันที่ 5 เป็นดึก", "บี วันที่ 12 หยุด".
 
-## Files
+## PDPA notes
+Only group messages classified as swap/edit are stored. LINE userIds live only in `HEAD_NURSE_LINE_IDS` and on open
+requests (nulled on any terminal state). Audit stores the reporter's display name. No LINE identifiers or names are
+sent to OpenAI beyond the message text itself.
 
-- `Code.gs` flow หลัก (onFormSubmit / doGet / commitSwap_ / expirePending)
-- `lib.gs` pure functions — unit test ได้ใน node
-- `app.gs` + `app.html` web app: magic-link login, ตารางรวม (แบบ Excel), เวรฉัน, ประวัติ, ส่งคำขอโดยแตะช่อง
-- `setup.gs` setupAll / setupForm / setupTriggers / setWebAppUrl / debugLocate
-- `test/` node --test + fixtures (รวม export จากตารางจริง)
-
-Local UI preview: `npm run preview` → http://localhost:3456
-
-รายละเอียด + checklist ทดสอบ: [SETUP.md](SETUP.md) — ผลทดสอบ: [TEST-LOG.md](TEST-LOG.md)
+## Layout
+`src/agent/` — `main.py` (FastAPI) · `line/` · `llm/` · `sheets/` · `change/` (state machine, checks, service) ·
+`commands/` · `thai_date.py` · `shifts.py` · `db.py`. Tests in `tests/` (gspread + OpenAI mocked; fixtures in
+`prompts/extract_examples.jsonl`).

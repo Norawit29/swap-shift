@@ -1,0 +1,17 @@
+# shift codes as written in roster cells; synonyms used for extraction + reply text
+shifts:
+  - code: "ช"
+    label: "เช้า"
+    synonyms: ["เช้า", "ช", "morning", "เวรเช้า"]
+  - code: "บ"
+    label: "บ่าย"
+    synonyms: ["บ่าย", "บ", "afternoon", "เวรบ่าย"]
+  - code: "ด"
+    label: "ดึก"
+    synonyms: ["ดึก", "ด", "night", "เวรดึก"]
+  - code: "conference"
+    label: "conference"
+    synonyms: ["conference", "ประชุม", "conf"]
+off_shift:
+  label: "หยุด"
+  synonyms: ["off", "หยุด", "ว่าง", "ออฟ"]

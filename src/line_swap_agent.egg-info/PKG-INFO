@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: line-swap-agent
+Version: 0.1.0
+Summary: LINE shift-swap reporting agent for hospital wards (Google Sheet as source of truth)
+Requires-Python: >=3.12
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn[standard]>=0.30
+Requires-Dist: line-bot-sdk>=3.12
+Requires-Dist: openai>=1.50
+Requires-Dist: gspread>=6.1
+Requires-Dist: google-auth>=2.30
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: pydantic>=2.8
+Requires-Dist: pydantic-settings>=2.4
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: httpx>=0.27
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: ruff>=0.5; extra == "dev"

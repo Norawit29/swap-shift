@@ -1,6 +1,11 @@
-.clasp.json
-node_modules/
+.venv/
+__pycache__/
+*.pyc
+.env
+*.db
+*.xlsx
 .DS_Store
 .qodo/
-*.xlsx
-/tmp/
+service-account*.json
+.pytest_cache/
+.ruff_cache/
