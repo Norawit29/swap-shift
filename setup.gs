@@ -18,6 +18,7 @@ var MOCK_ROSTER_ = [
 
 function setupAll() {
   setupSheets_();
+  if (/^copy of/i.test(SpreadsheetApp.getActiveSpreadsheet().getName())) seedMockNames();
   var form = setupForm();
   setupTriggers();
   var props = PropertiesService.getScriptProperties();
@@ -167,4 +168,24 @@ function debugLocate(dateStr, shift) {
   var r = locateShift_(parseFormDate_(dateStr), shift);
   Logger.log(JSON.stringify(r));
   return r;
+}
+
+/** ช่องทดสอบ (SETUP.md §5) — ใส่ชื่อ mock ลงตาราง ก.ย. 2569; ทำเฉพาะไฟล์ที่ชื่อขึ้นต้น "Copy of" */
+var MOCK_CELLS_ = [
+  ['2026-09-10', '8.00 - 16.00 (1)', 'norawit29'],
+  ['2026-09-11', '16.00 - 24.00', 'norawit29'],
+  ['2026-09-12', '0.00 - 8.00', 'norawit.kij'],
+  ['2026-09-14', '8.00 - 16.00 (2)', 'norawit.kij']
+];
+function seedMockNames() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!/^copy of/i.test(ss.getName())) throw new Error('seedMockNames ใช้ได้เฉพาะไฟล์ทดสอบที่ชื่อขึ้นต้น "Copy of" (ตอนนี้: ' + ss.getName() + ')');
+  MOCK_CELLS_.forEach(function (m) {
+    var cell = locateShift_(parseFormDate_(m[0]), m[1]);
+    if (cell.error) { Logger.log('seed skip %s %s: %s', m[0], m[1], cell.error); return; }
+    if (cellHasName_(cell.value, m[2])) return;
+    ss.getSheetByName(cell.sheetName).getRange(cell.row, cell.col).setValue(replaceName_(cell.value, baseName_(cell.value), m[2]) || m[2]);
+    Logger.log('seed %s %s: "%s" → %s (tab %s)', m[0], m[1], cell.value, m[2], cell.sheetName);
+  });
+  SpreadsheetApp.flush();
 }

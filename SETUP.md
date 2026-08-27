@@ -8,10 +8,7 @@
 ## 2. Push โค้ด
 
 ```sh
-npm install
-npx clasp login
-cp .clasp.json.example .clasp.json     # ใส่ scriptId
-npx clasp push
+./deploy.sh        # ทำให้ทั้งหมด: login → clasp create --parentId <copy> → push → deploy
 ```
 
 ## 3. รัน setupAll (ครั้งเดียว)
@@ -37,7 +34,7 @@ Deploy ▸ New deployment ▸ Web app — Execute as **Me**, Who has access **An
 
 ## 5. ใส่ชื่อ mock ลงตาราง (เฉพาะ copy ทดสอบ)
 
-ชื่อใน Roster ต้องตรงกับชื่อในช่องเวร ให้แก้ tab เดือนที่ทดสอบ (เช่น `กันยายน2569 (แลก5)` — script ใช้ tab **ขวาสุด** ของเดือนนั้น) ใส่ชื่อ:
+`setupAll` จะใส่ให้อัตโนมัติ (`seedMockNames`) เมื่อชื่อไฟล์ขึ้นต้น "Copy of" — หรือใส่เองตามนี้: ชื่อใน Roster ต้องตรงกับชื่อในช่องเวร ให้แก้ tab เดือนที่ทดสอบ (เช่น `กันยายน2569 (แลก5)` — script ใช้ tab **ขวาสุด** ของเดือนนั้น) ใส่ชื่อ:
 
 | ช่อง | ใส่ชื่อ |
 |---|---|

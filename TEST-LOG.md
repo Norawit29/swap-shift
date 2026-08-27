@@ -1,7 +1,8 @@
 # TEST-LOG — ทดสอบบน copy sheet
 
-- Sheet (copy): _(รอ Sheet ID)_
-- Script ID: _(รอ)_
+- Sheet (copy): `1c5VlXDuZy2p1gxaRh2NnXXBDErAw9S6UzYtJvA5aQS4` — https://docs.google.com/spreadsheets/d/1c5VlXDuZy2p1gxaRh2NnXXBDErAw9S6UzYtJvA5aQS4/edit
+- Sheet จริง: `1MDCL5wmuNT6EkeT8Ln1Hvc55hySdJu0niB_lZj2helo` (owner emchula2@gmail.com)
+- Script ID: _(สร้างโดย ./deploy.sh → .clasp.json)_
 - Web app URL: _(รอ deploy)_
 - Roster ทดสอบ: `norawit29 → norawit29@gmail.com`, `norawit.kij → norawit.kij29@gmail.com (head)`
 - tab ที่ใช้ทดสอบ: `กันยายน2569 (แลก5)` (ขวาสุดของเดือน)

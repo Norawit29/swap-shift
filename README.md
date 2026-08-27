@@ -13,10 +13,10 @@ npm test                       # unit tests (node --test) ของ lib.gs
 ## Deploy
 
 ```sh
-npx clasp login
-cp .clasp.json.example .clasp.json   # ใส่ scriptId ของ bound script (Extensions ▸ Apps Script ▸ Project settings)
-npx clasp push
+./deploy.sh                 # copy sheet (default) — login → สร้าง bound script → push → deploy
+./deploy.sh <SHEET_ID>      # sheet จริง ตอน cutover
 ```
+(หรือ manual: `npx clasp login` → `.clasp.json` จาก `.clasp.json.example` → `npx clasp push`)
 
 จากนั้นใน Apps Script editor:
 

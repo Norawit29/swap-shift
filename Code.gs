@@ -495,15 +495,18 @@ function page_(title, body) {
     '<title>' + esc_(title) + '</title>' +
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">' +
     '<style>' +
+    ':root{--p:#0f766e;--ink:#0f172a;--text:#475569;--faint:#94a3b8;--line:#e2e8f0;--line2:#eef2f6;--ground:#f1f4f8;--card:#fff;--ic:' + theme[0] + ';--ic-bg:' + theme[1] + ';--sh:0 1px 2px rgba(15,23,42,.04),0 8px 30px rgba(15,23,42,.08)}' +
+    '@media (prefers-color-scheme:dark){:root{--p:#2dd4bf;--ink:#f8fafc;--text:#cbd5e1;--faint:#6b7a90;--line:#273245;--line2:#1f2937;--ground:#0b1220;--card:#131c2e;--sh:0 8px 30px rgba(0,0,0,.4)' + { success: ';--ic:#4ade80;--ic-bg:#0d2f1b', error: ';--ic:#f87171;--ic-bg:#3f1414', info: ';--ic:#cbd5e1;--ic-bg:#273245' }[kind] + '}}' +
     '*{box-sizing:border-box}html,body{margin:0;padding:0}' +
-    'body{font-family:Sarabun,"Noto Sans Thai",-apple-system,"Segoe UI",Roboto,sans-serif;background:#f4f7fa;color:#1e293b;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px}' +
-    '.brand{font-size:13px;font-weight:700;letter-spacing:.5px;color:#0f766e;margin-bottom:14px}' +
-    '.card{background:#fff;width:100%;max-width:440px;border-radius:16px;box-shadow:0 8px 30px rgba(15,23,42,.08);border:1px solid #e2e8f0;padding:32px 24px;text-align:center}' +
-    '.icon{width:72px;height:72px;border-radius:50%;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:34px;line-height:1;background:' + theme[1] + ';color:' + theme[0] + '}' +
-    'h1{font-size:22px;line-height:1.35;margin:0 0 10px;color:#0f172a;font-weight:700}' +
-    '.body{font-size:15px;line-height:1.7;color:#475569;margin:0;word-break:break-word}' +
-    '.body b{color:#0f172a}' +
-    '.hint{font-size:13px;color:#94a3b8;margin-top:22px;padding-top:16px;border-top:1px solid #eef2f6}' +
+    'body{font-family:Sarabun,"Noto Sans Thai",-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--ground);color:var(--text);min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;-webkit-font-smoothing:antialiased}' +
+    '.brand{font-size:13px;font-weight:700;letter-spacing:.5px;color:var(--p);margin-bottom:14px}' +
+    '.card{background:var(--card);width:100%;max-width:440px;border-radius:16px;box-shadow:var(--sh);border:1px solid var(--line);padding:32px 24px;text-align:center;animation:up .25s cubic-bezier(.2,.8,.3,1)}' +
+    '@keyframes up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.card{animation:none}}' +
+    '.icon{width:72px;height:72px;border-radius:50%;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:34px;line-height:1;background:var(--ic-bg);color:var(--ic)}' +
+    'h1{font-size:22px;line-height:1.35;margin:0 0 10px;color:var(--ink);font-weight:700}' +
+    '.body{font-size:15px;line-height:1.7;color:var(--text);margin:0;word-break:break-word}' +
+    '.body b{color:var(--ink)}' +
+    '.hint{font-size:13px;color:var(--faint);margin-top:22px;padding-top:16px;border-top:1px solid var(--line2)}' +
     '@media (max-width:420px){.card{padding:28px 18px}h1{font-size:20px}}' +
     '</style></head><body>' +
     '<div class="brand">ER แลกเวร</div>' +
