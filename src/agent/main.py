@@ -50,6 +50,9 @@ async def webhook(request: Request, bg: BackgroundTasks) -> dict:
     payload = json.loads(body)
     for ev in payload.get("events", []):
         src = ev.get("source", {})
+        # setup aid: every event's ids at INFO so groupId / head-nurse userId can be copied from the log
+        log.info("event type=%s source=%s groupId=%s userId=%s", ev.get("type"), src.get("type"),
+                 src.get("groupId"), src.get("userId"))
         if src.get("type") != "group" or src.get("groupId") not in s.allowed_groups:
             continue  # ignore 1:1 and unknown groups entirely
         bg.add_task(handle_event, ev)
