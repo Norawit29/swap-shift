@@ -1,7 +1,7 @@
 """_audit tab (append-only). Never stores LINE userId."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .client import Ward, with_retry
 
@@ -19,7 +19,7 @@ def ensure_audit(ward: Ward):
 
 def audit_rows(month: str, cells: list[tuple[str, int, str, str]], change_id: str, reporter: str,
                kind: str, raw_text: str) -> list[list[str]]:
-    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ts = datetime.now(UTC).isoformat(timespec="seconds")
     return [[ts, month, sid, str(day), before, after, change_id, reporter, kind, raw_text]
             for sid, day, before, after in cells]
 

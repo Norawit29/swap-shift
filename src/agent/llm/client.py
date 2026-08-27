@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 from datetime import date
 from functools import lru_cache
-from pathlib import Path
 from typing import TypeVar
 
 from openai import OpenAI

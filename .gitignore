@@ -9,3 +9,4 @@ __pycache__/
 service-account*.json
 .pytest_cache/
 .ruff_cache/
+*.egg-info/

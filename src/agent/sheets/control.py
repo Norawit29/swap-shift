@@ -1,7 +1,7 @@
 """_control tab: key/value. Month lifecycle draft → published → live → closed."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..thai_date import Month
 from .client import Ward, with_retry
@@ -59,7 +59,7 @@ def set_status(ward: Ward, month: Month, status: str, by: str = "") -> None:
         months.append(month.key)
         upd["active_months"] = ",".join(sorted(months))
     if status == "published":
-        upd[f"published_at:{month.key}"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        upd[f"published_at:{month.key}"] = datetime.now(UTC).isoformat(timespec="seconds")
         upd[f"published_by:{month.key}"] = by
     if status == "closed":
         upd["active_months"] = ",".join(m for m in months if m != month.key)

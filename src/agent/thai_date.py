@@ -41,14 +41,14 @@ class Month:
     def abbr(self) -> str:
         return MONTHS_ABBR[self.month - 1]
 
-    def next(self) -> "Month":
+    def next(self) -> Month:
         return Month(self.year_be + (1 if self.month == 12 else 0), 1 if self.month == 12 else self.month + 1)
 
     def contains(self, day: int) -> bool:
         return 1 <= day <= self.days
 
     @classmethod
-    def from_key(cls, key: str) -> "Month":
+    def from_key(cls, key: str) -> Month:
         m = _MONTH_RE.match(key.strip())
         if not m:
             raise ValueError(f"bad month key: {key!r}")
@@ -58,7 +58,7 @@ class Month:
         return cls(_to_be(y), mo)
 
     @classmethod
-    def from_date(cls, d: date) -> "Month":
+    def from_date(cls, d: date) -> Month:
         return cls(d.year + BE_OFFSET, d.month)
 
     def first_date(self) -> date:

@@ -4,8 +4,17 @@ from __future__ import annotations
 import logging
 from functools import lru_cache
 
-from linebot.v3.messaging import (ApiClient, Configuration, MessagingApi, PostbackAction, PushMessageRequest,
-                                  QuickReply, QuickReplyItem, ReplyMessageRequest, TextMessage)
+from linebot.v3.messaging import (
+    ApiClient,
+    Configuration,
+    MessagingApi,
+    PostbackAction,
+    PushMessageRequest,
+    QuickReply,
+    QuickReplyItem,
+    ReplyMessageRequest,
+    TextMessage,
+)
 
 from ..settings import get_settings
 from .postback import cancel_data, confirm_data

@@ -4,8 +4,9 @@ from __future__ import annotations
 import logging
 import random
 import time
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Callable, TypeVar
+from typing import TypeVar
 
 import gspread
 from google.oauth2.service_account import Credentials

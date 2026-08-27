@@ -10,9 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from agent.sheets.audit import ensure_audit  # noqa: E402
-from agent.sheets.client import Ward  # noqa: E402
-from agent.sheets.control import set_control  # noqa: E402
+from agent.sheets.audit import ensure_audit
+from agent.sheets.client import Ward
+from agent.sheets.control import set_control
 
 FIX = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
 STAFF = [["staff_id", "full_name_th", "nicknames", "active"],
