@@ -10,3 +10,4 @@ service-account*.json
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+line-swap-agent-*.json
