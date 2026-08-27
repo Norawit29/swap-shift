@@ -1,12 +1,12 @@
-"""Roster tab → typed objects. One get_all_values() per operation."""
+"""Table layout (PLAN §4): staff_id | name | 1..31, cells hold shift codes. One get_all_values() per operation."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..shifts import CellParseError, ShiftCodes
+from ..shifts import CellParseError, ShiftCodes, load_shifts
 from ..thai_date import Month
-
-HEADER_FIXED = ("staff_id", "name")
+from .base import Move, RosterBase
+from .writer import CellWrite
 
 
 @dataclass
@@ -18,20 +18,47 @@ class RosterRow:
 
 
 @dataclass
-class Roster:
+class Roster(RosterBase):
     month: Month
     day_cols: dict[int, int]  # day → 1-based sheet column
     rows: dict[str, RosterRow]  # staff_id → row
-    header_rows: int = 1
+
+    @property
+    def names(self) -> dict[str, str]:  # type: ignore[override]
+        return {sid: r.name or sid for sid, r in self.rows.items()}
 
     def cell(self, staff_id: str, day: int) -> str:
         return self.rows[staff_id].cells.get(day, "")
 
+    def cells_map(self) -> dict[tuple[str, int], str]:
+        return {(sid, d): v for sid, r in self.rows.items() for d, v in r.cells.items()}
+
     def a1(self, staff_id: str, day: int) -> tuple[int, int]:
         return self.rows[staff_id].row_index, self.day_cols[day]
 
-    def has(self, staff_id: str) -> bool:
-        return staff_id in self.rows
+    def plan_moves(self, moves: list[Move]) -> list[CellWrite]:
+        codes = load_shifts()
+        new: dict[tuple[str, int], list[str]] = {}
+
+        def cur(sid: str, d: int) -> list[str]:
+            return new.setdefault((sid, d), codes.parse_cell(self.cell(sid, d)))
+
+        for m in moves:
+            cur(m.from_sid, m.day).remove(m.code)
+            cur(m.to_sid, m.day).append(m.code)
+        return self._writes(new, codes)
+
+    def plan_set(self, sid: str, day: int, new_codes: list[str]) -> list[CellWrite]:
+        return self._writes({(sid, day): list(new_codes)}, load_shifts())
+
+    def _writes(self, new: dict[tuple[str, int], list[str]], codes: ShiftCodes) -> list[CellWrite]:
+        out = []
+        for (sid, d), lst in new.items():
+            before, after = self.cell(sid, d), codes.serialize(lst)
+            if before != after:
+                r, c = self.a1(sid, d)
+                out.append(CellWrite(sid, d, r, c, before, after))
+        return out
 
 
 def parse_roster(values: list[list[str]], month: Month) -> Roster:
@@ -57,20 +84,23 @@ def parse_roster(values: list[list[str]], month: Month) -> Roster:
     return Roster(month, day_cols, rows)
 
 
-def validate_roster(roster: Roster, staff_ids: set[str], codes: ShiftCodes) -> list[str]:
+def validate_roster(roster: RosterBase, staff_ids: set[str], codes: ShiftCodes) -> list[str]:
     """ตรวจตาราง: unknown codes, unknown staff, empty rows, missing days."""
     errors: list[str] = []
-    for d in range(1, roster.month.days + 1):
-        if d not in roster.day_cols:
-            errors.append(f"ไม่มีคอลัมน์วันที่ {d}")
-    for sid, row in roster.rows.items():
-        if sid not in staff_ids:
-            errors.append(f"แถว {row.row_index}: ไม่รู้จัก staff_id {sid}")
-        if not any(v for v in row.cells.values()):
-            errors.append(f"แถว {row.row_index} ({row.name or sid}): ว่างทั้งแถว")
-        for d, v in row.cells.items():
-            try:
-                codes.parse_cell(v)
-            except CellParseError:
-                errors.append(f"{row.name or sid} วันที่ {d}: รหัสเวรไม่ถูกต้อง \"{v}\"")
+    if isinstance(roster, Roster):
+        for d in range(1, roster.month.days + 1):
+            if d not in roster.day_cols:
+                errors.append(f"ไม่มีคอลัมน์วันที่ {d}")
+    per_sid: dict[str, bool] = {}
+    for (sid, d), v in roster.cells_map().items():
+        per_sid[sid] = per_sid.get(sid, False) or bool(v)
+        try:
+            codes.parse_cell(v)
+        except CellParseError:
+            errors.append(f"{roster.names.get(sid, sid)} วันที่ {d}: รหัสเวรไม่ถูกต้อง \"{v}\"")
+    for sid, any_shift in per_sid.items():
+        if staff_ids and sid not in staff_ids:
+            errors.append(f"ไม่รู้จัก {sid} ในรายชื่อ _staff")
+        if not any_shift:
+            errors.append(f"{roster.names.get(sid, sid)}: ว่างทั้งเดือน")
     return errors

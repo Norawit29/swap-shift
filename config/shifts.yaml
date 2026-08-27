@@ -15,3 +15,14 @@ shifts:
 off_shift:
   label: "หยุด"
   synonyms: ["off", "หยุด", "ว่าง", "ออฟ"]
+
+# ROSTER_LAYOUT=grid — ER attending sheet: week blocks, col B = row label, C..I = Mon..Sun, names in cells.
+# row label (normalized: lowercase, no spaces) → shift code. Rows not listed are ignored (read-only).
+grid_rows:
+  "8.00-16.00": "ช"
+  "onfloor1-2": "ช"
+  "16.00-24.00": "บ"
+  "0.00-8.00": "ด"
+  "conference3-4": "conference"
+  "conference3-4,tm": "conference"
+grid_date_label: "วันที่"

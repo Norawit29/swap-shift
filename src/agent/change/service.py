@@ -14,7 +14,8 @@ from ..llm.schemas import EditExtraction, SwapExtraction
 from ..settings import get_settings
 from ..sheets.client import Ward
 from ..sheets.control import active_months, current_month, month_status, read_control
-from ..sheets.reader import Roster, parse_roster
+from ..sheets.base import RosterBase
+from ..sheets.layout import load_roster
 from ..sheets.staff import read_staff
 from ..sheets.writer import CellWrite, SnapshotMismatch, apply_writes
 from ..shifts import load_shifts
@@ -52,13 +53,20 @@ class ChangeService:
     # ── context ────────────────────────────────────────────────
     def _ctx(self):
         ctl = read_control(self.ward)
-        return ctl, read_staff(self.ward)
+        staff = read_staff(self.ward)
+        if not staff:  # grid layout without _staff: identity = name in cell
+            today_m = Month.from_date(date.today())
+            loaded = load_roster(self.ward, current_month(ctl, today_m))
+            if loaded:
+                staff = [Staff(n, n, (n,)) for n in loaded[1].names]
+        return ctl, staff
 
-    def _roster(self, month: Month) -> Roster | None:
-        try:
-            return parse_roster(self.ward.values(month.key), month)
-        except KeyError:
+    def _roster(self, month: Month) -> RosterBase | None:
+        loaded = load_roster(self.ward, month)
+        if loaded is None:
             return None
+        self._tab = loaded[0]
+        return loaded[1]
 
     def open_request(self, user_id: str) -> ChangeRequest | None:
         q = select(ChangeRequest).where(ChangeRequest.reporter_line_id == user_id,
@@ -212,7 +220,7 @@ class ChangeService:
             transition(cr, "REJECTED")
             return Reply(T.reject(res.reason or ""))
         cr.snapshot = {"writes": [[w.staff_id, w.day, w.row, w.col, w.before, w.after] for w in res.writes],
-                       "lines": res.lines}
+                       "lines": res.lines, "tab": getattr(self, "_tab", cr.month)}
         transition(cr, "PENDING_CONFIRM")
         self.db.flush()
         if cr.kind == "swap":
@@ -233,7 +241,9 @@ class ChangeService:
         writes = [CellWrite(*w) for w in (cr.snapshot or {}).get("writes", [])]
         lines = (cr.snapshot or {}).get("lines", [])
         try:
-            apply_writes(self.ward, cr.month, writes, cr.id, cr.reporter_display_name, cr.kind, cr.raw_text)
+            tab = (cr.snapshot or {}).get("tab", cr.month)
+            apply_writes(self.ward, tab, writes, cr.id, cr.reporter_display_name, cr.kind, cr.raw_text,
+                         month_key=cr.month)
         except SnapshotMismatch as e:
             log.warning("snapshot mismatch %s: %s", cr.id, e)
             transition(cr, "REJECTED")

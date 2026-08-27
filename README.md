@@ -38,6 +38,17 @@ Cron (Cloud Scheduler, POST with `?token=$CRON_TOKEN`): `/cron/expire` every 10 
 Start with `DRY_RUN=true` for a 1-week shadow run: the bot replies normally but logs intended writes instead of
 touching the Sheet.
 
+## Roster layouts (`ROSTER_LAYOUT`)
+- `table` — PLAN §4: `staff_id | name | 1…31`, cells hold codes `ช/บ/ด/conference` (multi-code cells like `ชบ` ok).
+- `grid` — the existing ER attending sheet (`ตารางเวรstaff_ปี2569`): one tab per Thai month (`กันยายน2569`, revision
+  tabs `กันยายน2569 (แลกN)` → the **rightmost** matching tab is used), week blocks with `วันที่` rows, names in cells.
+  Row → code mapping lives in `config/shifts.yaml` `grid_rows` (`8.00 - 16.00` + `On floor 1-2` = ช, `16.00 - 24.00` = บ,
+  `0.00 - 8.00` = ด, conference rows = conference). Identity = name as written in the cell (`_staff` optional; if present
+  it only supplies nicknames). A swap replaces the name in the slot (`' TM'` suffix preserved); an edit moves the name to
+  a free slot of the target row or rejects when none is free. `_planned`/`_diff`/`_audit`/`_control` work the same;
+  `ประกาศตาราง 2569-09` resolves to the September tab. **This deviates from PLAN §4 by owner request** (bot bound to the
+  real sheet instead of re-entering it in the table schema).
+
 ## Monthly cycle (head nurse, in the group)
 | Command | Effect |
 |---|---|

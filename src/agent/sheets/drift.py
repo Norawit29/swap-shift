@@ -4,12 +4,20 @@ from __future__ import annotations
 from ..thai_date import Month
 from .audit import read_audit
 from .client import Ward
-from .reader import parse_roster
+from .layout import parse_values, tab_title
+
+
+def _tabs(ward: Ward, month: Month) -> tuple[str, str]:
+    t = tab_title(ward, month)
+    if t is None:
+        raise KeyError(month.key)
+    return t, f"{t}_planned"
 
 
 def expected_state(ward: Ward, month: Month) -> dict[tuple[str, int], str]:
-    planned = parse_roster(ward.values(f"{month.key}_planned"), month)
-    state = {(sid, d): v for sid, row in planned.rows.items() for d, v in row.cells.items()}
+    live, planned_t = _tabs(ward, month)
+    planned = parse_values(ward.values(planned_t), month)
+    state = dict(planned.cells_map())
     for a in read_audit(ward, month.key):
         try:
             state[(a["staff_id"], int(a["day"]))] = a["after"]
@@ -21,32 +29,33 @@ def expected_state(ward: Ward, month: Month) -> dict[tuple[str, int], str]:
 def detect_drift(ward: Ward, month: Month) -> list[tuple[str, int, str, str]]:
     """→ [(staff_id, day, expected, actual)]"""
     expected = expected_state(ward, month)
-    actual = parse_roster(ward.values(month.key), month)
+    live, _ = _tabs(ward, month)
+    actual_map = parse_values(ward.values(live), month).cells_map()
     out = []
     for (sid, d), exp in expected.items():
-        act = actual.cell(sid, d) if actual.has(sid) else ""
+        act = actual_map.get((sid, d), "")
         if act != exp:
             out.append((sid, d, exp, act))
-    for sid, row in actual.rows.items():
-        for d, v in row.cells.items():
-            if (sid, d) not in expected and v:
-                out.append((sid, d, "", v))
+    for (sid, d), v in actual_map.items():
+        if (sid, d) not in expected and v:
+            out.append((sid, d, "", v))
     return out
 
 
 def build_diff(ward: Ward, month: Month) -> tuple[int, dict[str, int]]:
     """Create <month>_diff tab: rows where planned ≠ actual. Returns (n_rows, per-staff delta count)."""
-    planned = parse_roster(ward.values(f"{month.key}_planned"), month)
-    actual = parse_roster(ward.values(month.key), month)
+    live, planned_t = _tabs(ward, month)
+    planned = parse_values(ward.values(planned_t), month)
+    actual = parse_values(ward.values(live), month).cells_map()
+    pmap = planned.cells_map()
     rows = [["staff_id", "name", "day", "planned", "actual"]]
     per: dict[str, int] = {}
-    for sid, prow in planned.rows.items():
-        for d in sorted(prow.cells):
-            p = prow.cells[d]
-            a = actual.cell(sid, d) if actual.has(sid) else ""
-            if p != a:
-                rows.append([sid, prow.name, str(d), p, a])
-                per[prow.name or sid] = per.get(prow.name or sid, 0) + 1
+    for (sid, d) in sorted(set(pmap) | set(actual)):
+        p, a = pmap.get((sid, d), ""), actual.get((sid, d), "")
+        if p != a:
+            name = planned.names.get(sid, sid)
+            rows.append([sid, name, str(d), p, a])
+            per[name] = per.get(name, 0) + 1
     title = f"{month.key}_diff"
     ws = ward.tab(title)
     if ws is None:

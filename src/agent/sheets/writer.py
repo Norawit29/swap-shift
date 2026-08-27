@@ -27,11 +27,12 @@ class CellWrite:
     after: str
 
 
-def apply_writes(ward: Ward, month_key: str, writes: list[CellWrite], change_id: str, reporter: str,
-                 kind: str, raw_text: str) -> None:
-    ws = ward.tab(month_key)
+def apply_writes(ward: Ward, tab: str, writes: list[CellWrite], change_id: str, reporter: str,
+                 kind: str, raw_text: str, month_key: str | None = None) -> None:
+    month_key = month_key or tab
+    ws = ward.tab(tab)
     if ws is None:
-        raise KeyError(f"tab {month_key} not found")
+        raise KeyError(f"tab {tab} not found")
     # optimistic lock: re-read exactly the affected cells
     ranges = [rowcol_to_a1(w.row, w.col) for w in writes]
     current = with_retry(lambda: ws.batch_get(ranges))

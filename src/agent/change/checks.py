@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 from ..line import templates as T
 from ..sheets.control import WRITABLE
-from ..sheets.reader import Roster
+from ..sheets.base import Move, PlanError, RosterBase
 from ..sheets.writer import CellWrite
 from ..shifts import CellParseError, ShiftCodes
 from ..thai_date import Month, fmt_day
@@ -33,7 +33,7 @@ def check_month(status: str) -> str | None:
     return None if status in WRITABLE else T.MONTH_NOT_OPEN
 
 
-def check_swap(roster: Roster, codes: ShiftCodes, a: Staff, a_day: int, a_shift: str,
+def check_swap(roster: RosterBase, codes: ShiftCodes, a: Staff, a_day: int, a_shift: str,
                b: Staff, b_day: int | None, b_shift: str | None, status: str) -> CheckResult:
     m: Month = roster.month
     if (r := check_month(status)):
@@ -68,29 +68,18 @@ def check_swap(roster: Roster, codes: ShiftCodes, a: Staff, a_day: int, a_shift:
     if not give and b_shift in a_recv and not (a_day == b_day and b_shift == a_shift):  # type: ignore[operator]
         return CheckResult(False, f"{a.display} มีเวร{codes.label(b_shift)}วันที่ {fmt_day(m, b_day)} อยู่แล้ว")
 
-    # build writes (cell-level; when both on same day, merge)
-    new: dict[tuple[str, int], list[str]] = {}
-
-    def cur(sid: str, d: int) -> list[str]:
-        return new.setdefault((sid, d), codes.parse_cell(roster.cell(sid, d)))
-
-    cur(a.staff_id, a_day).remove(a_shift)
-    cur(b.staff_id, a_day).append(a_shift)
+    moves = [Move(a.staff_id, b.staff_id, a_day, a_shift)]
     if not give:
-        cur(b.staff_id, b_day).remove(b_shift)  # type: ignore[arg-type]
-        cur(a.staff_id, b_day).append(b_shift)  # type: ignore[arg-type]
-    writes = []
-    for (sid, d), lst in new.items():
-        before = roster.cell(sid, d)
-        after = codes.serialize(lst)
-        if before != after:
-            r, c = roster.a1(sid, d)
-            writes.append(CellWrite(sid, d, r, c, before, after))
+        moves.append(Move(b.staff_id, a.staff_id, b_day, b_shift))  # type: ignore[arg-type]
+    try:
+        writes = roster.plan_moves(moves)
+    except PlanError as e:
+        return CheckResult(False, str(e))
     lines = T.swap_lines(m, a.display, a_day, a_shift, b.display, b_day, b_shift, codes)
     return CheckResult(True, writes=writes, lines=lines)
 
 
-def check_edit(roster: Roster, codes: ShiftCodes, target: Staff, day: int, new_value: str,
+def check_edit(roster: RosterBase, codes: ShiftCodes, target: Staff, day: int, new_value: str,
                status: str, implied_old: str | None = None) -> CheckResult:
     m = roster.month
     if (r := check_month(status)):
@@ -100,7 +89,7 @@ def check_edit(roster: Roster, codes: ShiftCodes, target: Staff, day: int, new_v
     if not roster.has(target.staff_id):
         return CheckResult(False, f"{target.display} ไม่อยู่ในตารางเดือน {m.abbr}")
     try:
-        codes.parse_cell(new_value)
+        new_codes = codes.parse_cell(new_value)
     except CellParseError:
         return CheckResult(False, f"รหัสเวร \"{new_value}\" ไม่ถูกต้อง")
     before = roster.cell(target.staff_id, day)
@@ -109,6 +98,9 @@ def check_edit(roster: Roster, codes: ShiftCodes, target: Staff, day: int, new_v
         warn = f"ตารางปัจจุบันระบุ {_cell_desc(before, codes)} ไม่ใช่ {_cell_desc(implied_old, codes)}"
     if before == new_value:
         return CheckResult(False, f"{target.display} วันที่ {fmt_day(m, day)} เป็น {_cell_desc(before, codes)} อยู่แล้ว")
-    r, c = roster.a1(target.staff_id, day)
-    return CheckResult(True, warning=warn, writes=[CellWrite(target.staff_id, day, r, c, before, new_value)],
+    try:
+        writes = roster.plan_set(target.staff_id, day, new_codes)
+    except PlanError as e:
+        return CheckResult(False, str(e))
+    return CheckResult(True, warning=warn, writes=writes,
                        lines=[T.edit_line(m, day, target.display, before, new_value, codes)])

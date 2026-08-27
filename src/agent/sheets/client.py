@@ -72,6 +72,9 @@ class Ward:
             raise KeyError(f"tab {title!r} not found")
         return with_retry(ws.get_all_values)
 
+    def sheet_titles(self) -> list[str]:
+        return [ws.title for ws in with_retry(self.ss.worksheets)]
+
     def tab_url(self, title: str) -> str:
         ws = self.tab(title)
         return f"{self.url}/edit#gid={ws.id}" if ws else self.url

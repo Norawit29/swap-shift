@@ -21,6 +21,8 @@ class ShiftCodes:
     labels: dict[str, str]
     synonyms: dict[str, str]  # synonym (lower) → code; "" for off
     off_label: str
+    grid_rows: dict[str, str] = None  # normalized row label → code (grid layout)
+    grid_date_label: str = "วันที่"
 
     def label(self, code: str) -> str:
         return self.off_label if code == "" else self.labels.get(code, code)
@@ -82,7 +84,11 @@ def load_shifts(path: Path | None = None) -> ShiftCodes:
     off = data.get("off_shift", {})
     for s in off.get("synonyms", []):
         syn[str(s).lower()] = ""
-    return ShiftCodes(tuple(codes), labels, syn, str(off.get("label", "หยุด")))
+    grid_rows = {norm_label(k): str(v) for k, v in (data.get("grid_rows") or {}).items()}
+    return ShiftCodes(tuple(codes), labels, syn, str(off.get("label", "หยุด")), grid_rows,
+                      str(data.get("grid_date_label", "วันที่")))
 
 
-_STRIP_RE = re.compile(r"\s+")
+def norm_label(s: str) -> str:
+    return re.sub(r"[\s*:]+", "", str(s or "")).lower()
+

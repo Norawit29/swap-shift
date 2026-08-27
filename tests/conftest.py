@@ -15,6 +15,8 @@ FIX = Path(__file__).parent / "fixtures"
 def _env(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
     monkeypatch.setenv("OPENAI_MODEL", "test-model")
+    monkeypatch.setenv("DRY_RUN", "false")
+    monkeypatch.setenv("ROSTER_LAYOUT", "table")
     from agent import db as dbm
     from agent.settings import get_settings
 

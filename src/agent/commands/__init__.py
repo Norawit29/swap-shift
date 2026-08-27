@@ -11,7 +11,8 @@ from ..sheets.client import Ward
 from ..sheets.control import active_months, month_status, read_control, set_status
 from ..sheets.drift import build_diff
 from ..sheets.protection import protect_tab
-from ..sheets.reader import parse_roster, validate_roster
+from ..sheets.layout import load_roster
+from ..sheets.reader import validate_roster
 from ..sheets.staff import read_staff
 from ..shifts import load_shifts
 from ..thai_date import Month, parse_month
@@ -45,29 +46,27 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
     codes = load_shifts()
     ctl = read_control(ward)
     status = month_status(ctl, m)
+    loaded = load_roster(ward, m)
+    if cmd.name in ("ตรวจตาราง", "ประกาศตาราง") and loaded is None:
+        return f"ไม่พบแท็บของเดือน {m.label}"
     if cmd.name == "ตรวจตาราง":
-        if ward.tab(m.key) is None:
-            return f"ไม่พบแท็บ {m.key}"
-        roster = parse_roster(ward.values(m.key), m)
-        errors = validate_roster(roster, {s.staff_id for s in read_staff(ward)}, codes)
+        errors = validate_roster(loaded[1], {s.staff_id for s in read_staff(ward)}, codes)
         return T.check_report(m, errors)
     if cmd.name == "ประกาศตาราง":
         if status in ("published", "live", "closed"):
             return f"ตาราง {m.label} ประกาศแล้ว (สถานะ {status})"
-        if ward.tab(m.key) is None:
-            return f"ไม่พบแท็บ {m.key}"
-        roster = parse_roster(ward.values(m.key), m)
+        title, roster = loaded
         errors = validate_roster(roster, {s.staff_id for s in read_staff(ward)}, codes)
         if errors:
             return T.check_report(m, errors) + "\nแก้ให้เรียบร้อยก่อนประกาศค่ะ"
-        planned = f"{m.key}_planned"
+        planned = f"{title}_planned"
         if ward.tab(planned) is None:
-            src = ward.tab(m.key)
+            src = ward.tab(title)
             ward.ss.duplicate_sheet(src.id, new_sheet_name=planned)
-        protect_tab(ward, m.key)
+        protect_tab(ward, title)
         protect_tab(ward, planned)
         set_status(ward, m, "published", by=by_display)
-        return T.published(m, ward.tab_url(m.key))
+        return T.published(m, ward.tab_url(title))
     if cmd.name == "ปิดตาราง":
         if status not in ("published", "live"):
             return f"ตาราง {m.label} สถานะ {status or 'ไม่มี'} ปิดไม่ได้"
