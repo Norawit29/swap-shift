@@ -5,5 +5,5 @@ COPY src ./src
 COPY config ./config
 COPY prompts ./prompts
 RUN pip install --no-cache-dir .
-ENV PORT=8080
+ENV PORT=8080 APP_ROOT=/app
 CMD ["sh", "-c", "uvicorn agent.main:app --host 0.0.0.0 --port ${PORT}"]

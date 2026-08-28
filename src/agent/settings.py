@@ -7,7 +7,19 @@ from pathlib import Path
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ROOT = Path(__file__).resolve().parents[2]
+def _find_root() -> Path:
+    """Project root = dir holding config/shifts.yaml: $APP_ROOT, cwd (Docker /app), or the source checkout."""
+    import os
+
+    cands = [Path(os.environ["APP_ROOT"])] if os.environ.get("APP_ROOT") else []
+    cands += [Path.cwd(), Path(__file__).resolve().parents[2]]
+    for c in cands:
+        if (c / "config" / "shifts.yaml").is_file():
+            return c
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = _find_root()
 
 
 class Settings(BaseSettings):
