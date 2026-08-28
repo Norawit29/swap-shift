@@ -73,7 +73,7 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
             ward.ss.duplicate_sheet(src.id, new_sheet_name=planned)
         protect_tab(ward, title)
         protect_tab(ward, planned)
-        bring_to_front(ward, title, hide=[planned])
+        _hide(ward, [planned])  # tab is moved to the front only on go-live (day 1), not at publish
         set_status(ward, m, "published", by=by_display)
         return T.published(m, ward.tab_url(title))
     if cmd.name == "ปิดตาราง":

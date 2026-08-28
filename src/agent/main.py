@@ -1,9 +1,10 @@
 """FastAPI entry: /webhook, /healthz, /cron/expire, /cron/drift, /cron/go-live"""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 
@@ -28,10 +29,35 @@ CONFIDENCE_MIN = 0.6
 
 
 @app.on_event("startup")
-def _startup() -> None:
+async def _startup() -> None:
     s = get_settings()
     logging.basicConfig(level=s.log_level, format='{"ts":"%(asctime)s","lvl":"%(levelname)s","msg":%(message)r}')
     init_db()
+    if s.internal_cron:
+        asyncio.create_task(_internal_cron())
+
+
+async def _internal_cron() -> None:
+    """In-process scheduler: expire every 10 min, drift every 30 min, go-live daily 00:05 local time."""
+    import zoneinfo
+
+    tz = zoneinfo.ZoneInfo(get_settings().tz)
+    last_go_live: date | None = None
+    tick = 0
+    log.info("internal cron started")
+    while True:
+        await asyncio.sleep(600)
+        tick += 1
+        try:
+            await asyncio.to_thread(cron_expire, get_settings().cron_token or None)
+            if tick % 3 == 0:
+                await asyncio.to_thread(cron_drift, get_settings().cron_token or None)
+            now = datetime.now(tz)
+            if now.hour == 0 and now.minute >= 5 and last_go_live != now.date():
+                await asyncio.to_thread(cron_go_live, get_settings().cron_token or None)
+                last_go_live = now.date()
+        except Exception:
+            log.exception("internal cron tick failed")
 
 
 @app.get("/healthz")

@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     dry_run: bool = False
     log_level: str = "INFO"
     cron_token: str = ""
-    roster_layout: str = "table"  # table (PLAN §4) | grid (ER attending week-block sheet)
+    roster_layout: str = "table"
+    internal_cron: bool = True  # run expire/drift/go-live from inside the process (no external scheduler needed)
+    tz: str = "Asia/Bangkok"  # table (PLAN §4) | grid (ER attending week-block sheet)
     clarify_window_min: int = 10
     max_clarify_rounds: int = 2
 

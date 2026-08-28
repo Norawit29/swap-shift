@@ -32,7 +32,7 @@ pytest
 ```sh
 gcloud run deploy line-swap-agent --source . --region asia-southeast1 --set-env-vars "$(paste -sd, .env)"
 ```
-Cron (Cloud Scheduler, POST with `?token=$CRON_TOKEN`): `/cron/expire` every 10 min, `/cron/drift` every 30 min,
+By default the process runs its own scheduler (`INTERNAL_CRON=true`: expire 10 min, drift 30 min, go-live 00:05). Set it to false and use Cloud Scheduler if you run several instances. Cron (Cloud Scheduler, POST with `?token=$CRON_TOKEN`): `/cron/expire` every 10 min, `/cron/drift` every 30 min,
 `/cron/go-live` daily 00:05 Asia/Bangkok.
 
 Start with `DRY_RUN=true` for a 1-week shadow run: the bot replies normally but logs intended writes instead of
