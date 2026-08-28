@@ -41,6 +41,14 @@ def check_swap(roster: RosterBase, codes: ShiftCodes, a: Staff, a_day: int, a_sh
     if a.staff_id == b.staff_id:
         return CheckResult(False, "ผู้แลกทั้งสองเป็นคนเดียวกัน")
     give = b_day is None or b_shift is None
+    # conference: exchange only, and only with another conference slot
+    conf = "conference"
+    if a_shift == conf or (not give and b_shift == conf):
+        if give:
+            return CheckResult(False, f"{codes.label(conf)} ยกให้ไม่ได้ ต้องแลกกับ {codes.label(conf)} ของอีกฝ่ายเท่านั้น")
+        if a_shift != b_shift:
+            return CheckResult(False, f"{codes.label(conf)} แลกได้กับ {codes.label(conf)} เท่านั้น "
+                                      f"(แจ้งมา: {codes.label(a_shift)} ↔ {codes.label(b_shift)})")
     for who, d in ((a, a_day), *(() if give else ((b, b_day),))):
         if not m.contains(d):
             return CheckResult(False, f"เดือน {m.abbr} ไม่มีวันที่ {d}")

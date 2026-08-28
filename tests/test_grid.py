@@ -82,3 +82,22 @@ def test_month_tab_title_rightmost_and_aliases():
     assert month_tab_title(titles, Month(2569, 7)) == "กรกฏาคม2569(2)"
     assert month_tab_title(titles, Month(2569, 8)) == "สิงหาคม 2569"
     assert month_tab_title(titles, Month(2569, 10)) is None
+
+
+def test_conference_only_with_conference(grid):
+    from agent.shifts import load_shifts
+
+    codes = load_shifts()
+    w, s = Staff("วรวรรธน์", "วรวรรธน์"), Staff("สุรีย์ภรณ์", "สุรีย์ภรณ์")
+    # conference ↔ conference ok (day 2 วรวรรธน์ TM ↔ day 4 สุรีย์ภรณ์ TM), TM suffix kept
+    r = check_swap(grid, codes, w, 2, "conference", s, 4, "conference", "live")
+    assert r.ok, r.reason
+    assert {x.after for x in r.writes} == {"สุรีย์ภรณ์ TM", "วรวรรธน์ TM"}
+    # conference ↔ เช้า rejected
+    r2 = check_swap(grid, codes, w, 2, "conference", Staff("ธนดล", "ธนดล"), 3, "ช", "live")
+    assert not r2.ok and "แลกได้กับ conference เท่านั้น" in r2.reason
+    r3 = check_swap(grid, codes, Staff("ธนดล", "ธนดล"), 3, "ช", w, 2, "conference", "live")
+    assert not r3.ok and "conference เท่านั้น" in r3.reason
+    # give conference rejected
+    r4 = check_swap(grid, codes, w, 2, "conference", s, None, None, "live")
+    assert not r4.ok and "ยกให้ไม่ได้" in r4.reason
