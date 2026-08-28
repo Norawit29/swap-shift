@@ -101,3 +101,25 @@ def test_conference_only_with_conference(grid):
     # give conference rejected
     r4 = check_swap(grid, codes, w, 2, "conference", s, None, None, "live")
     assert not r4.ok and "ยกให้ไม่ได้" in r4.reason
+
+
+def test_whole_day_swap(grid):
+    from agent.shifts import load_shifts
+
+    codes = load_shifts()
+    # อรรถสิทธิ์ 3 ก.ย. = ชบด  ↔  ธนดล 12 ก.ย. = (ว่าง) → give-like exchange rejected? no: exchange needs B codes
+    a, b = Staff("อรรถสิทธิ์", "อรรถสิทธิ์"), Staff("คมสันติ", "คมสันติ")
+    # อรรถสิทธิ์ 3 (ชบด) ↔ คมสันติ 7 (ชบด): all three codes move both ways
+    r = check_swap(grid, codes, a, 3, "all", b, 7, "all", "live")
+    assert r.ok, r.reason
+    assert r.a_codes == ["ช", "บ", "ด"] and r.b_codes == ["ช", "บ", "ด"]
+    assert len(r.writes) == 6 and {w.after for w in r.writes} == {"อรรถสิทธิ์", "คมสันติ"}
+    assert r.lines[0] == "3 ก.ย. เช้า: อรรถสิทธิ์ → คมสันติ" and r.lines[-1] == "7 ก.ย. ดึก: คมสันติ → อรรถสิทธิ์"
+    # give whole day to someone free that day
+    g = check_swap(grid, codes, a, 3, "all", Staff("ธนดล", "ธนดล"), None, None, "live")
+    assert not g.ok  # ธนดล already has ช on day 3
+    g2 = check_swap(grid, codes, Staff("ภัทรพล", "ภัทรพล"), 4, "all", Staff("ธนดล", "ธนดล"), None, None, "live")
+    assert g2.ok and g2.a_codes == ["ช", "บ", "ด"] and len(g2.writes) == 3
+    # off day → clear message
+    off = check_swap(grid, codes, Staff("ธนดล", "ธนดล"), 12, "all", b, 7, "all", "live")
+    assert not off.ok and "ไม่มีเวรให้แลก" in off.reason

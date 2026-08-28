@@ -158,6 +158,10 @@ class ChangeService:
             return Reply(T.reject_plain(f"ไม่พบตารางเดือน {a_m.label}"))
         res = check_swap(roster, self.codes, a, cr.a_day, cr.a_shift, b, cr.b_day, cr.b_shift,
                          month_status(ctl, a_m))
+        if res.ok:  # record the concrete codes (resolves "all")
+            cr.a_shift = self.codes.serialize(res.a_codes)
+            if not give:
+                cr.b_shift = self.codes.serialize(res.b_codes)
         return self._finish_check(cr, res, msg)
 
     # ── roster edit ─────────────────────────────────────────────

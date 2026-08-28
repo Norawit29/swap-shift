@@ -9,11 +9,14 @@ def _line(month: Month, day: int, code: str, frm: str, to: str, codes: ShiftCode
     return f"{fmt_day(month, day)} {codes.label(code)}: {frm} → {to}" + (" (ยกเวร)" if give else "")
 
 
-def swap_lines(month: Month, a_name: str, a_day: int, a_shift: str, b_name: str,
-               b_day: int | None, b_shift: str | None, codes: ShiftCodes) -> list[str]:
+def swap_lines(month: Month, a_name: str, a_day: int, a_shift: str | list[str], b_name: str,
+               b_day: int | None, b_shift: str | list[str] | None, codes: ShiftCodes) -> list[str]:
+    a_codes = [a_shift] if isinstance(a_shift, str) else list(a_shift)
     if b_day is None or b_shift is None:
-        return [_line(month, a_day, a_shift, a_name, b_name, codes, give=True)]
-    return [_line(month, a_day, a_shift, a_name, b_name, codes), _line(month, b_day, b_shift, b_name, a_name, codes)]
+        return [_line(month, a_day, c, a_name, b_name, codes, give=True) for c in a_codes]
+    b_codes = [b_shift] if isinstance(b_shift, str) else list(b_shift)
+    return ([_line(month, a_day, c, a_name, b_name, codes) for c in a_codes] +
+            [_line(month, b_day, c, b_name, a_name, codes) for c in b_codes])
 
 
 def edit_line(month: Month, day: int, name: str, old: str, new: str, codes: ShiftCodes) -> str:
