@@ -339,14 +339,13 @@ def _norm_shift(v: str | None, codes) -> str | None:
     """LLM shift value → 'all' | serialized codes ('ช', 'บด') | None if invalid."""
     if v is None:
         return None
-    t = str(v).strip()
-    if t.lower() in ("all", "ทั้งวัน", "*"):
-        return "all"
-    try:
-        lst = codes.parse_cell(t)
-    except Exception:  # noqa: BLE001
+    lst = codes.from_words(v)
+    if not lst:
         return None
-    return codes.serialize(lst) if lst else None
+    if lst == ["all"] or set(lst) >= {"ช", "บ", "ด"}:  # เช้าบ่ายดึก = ทั้งวัน
+        return "all"
+    order = {c: i for i, c in enumerate(codes.codes)}
+    return codes.serialize(sorted(lst, key=lambda c: order.get(c, 99)))
 
 
 def _shift_arg(v: str | None, codes) -> str | list[str] | None:

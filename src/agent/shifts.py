@@ -41,6 +41,31 @@ class ShiftCodes:
             return t
         return self.synonyms.get(t)
 
+    def from_words(self, text: str | None) -> list[str] | None:
+        """Thai/English shift words run together → codes: 'เช้าบ่าย' → ['ช','บ'], 'บ่ายดึก' → ['บ','ด'],
+        'เช้า บ่าย และ ดึก' → ['ช','บ','ด'], 'ชบ' → ['ช','บ'], 'ทั้งวัน' → ['all']. None if unparseable."""
+        if text is None:
+            return None
+        t = re.sub(r"[\s,/+]+|และ|กับ|เวร", "", str(text).strip().lower())
+        if not t:
+            return None
+        if t in ("all", "ทั้งวัน", "ทุกเวร", "เวรทั้งหมด", "ทั้งหมด", "*"):
+            return ["all"]
+        keys = sorted((k for k in self.synonyms if k), key=len, reverse=True)
+        out: list[str] = []
+        i = 0
+        while i < len(t):
+            for k in keys:
+                if t.startswith(k, i):
+                    code = self.synonyms[k]
+                    if code and code not in out:
+                        out.append(code)
+                    i += len(k)
+                    break
+            else:
+                return None
+        return out or None
+
     def parse_cell(self, cell: str) -> list[str]:
         """'ชบ' → ['ช','บ']; 'ช,conference' → ['ช','conference']; '' → []. Unknown token → CellParseError."""
         s = (cell or "").strip()

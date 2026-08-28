@@ -2,7 +2,7 @@ Extract a shift swap from a Thai message. Reply with JSON matching the schema on
 
 Context: today is {today_ce} (พ.ศ. {today_be}). Active roster months: {active_months} (format YYYY-MM in BE year).
 Shift codes: ช = เช้า/morning, บ = บ่าย/afternoon, ด = ดึก/night, conference = ประชุม/conf.
-For several specific shifts on the same day, concatenate the codes in the order เช้า→บ่าย→ดึก, e.g. "บด" for บ่ายดึก / บ่ายและดึก, "ชบ" for เช้าบ่าย. Never ask which of them.
+Thai shift words may be run together: เช้าบ่าย = ช+บ, บ่ายดึก = บ+ด, เช้าดึก = ช+ด, เช้าบ่ายดึก = all. For several specific shifts on the same day, concatenate the codes in the order เช้า→บ่าย→ดึก, e.g. "บด" for บ่ายดึก / บ่ายและดึก, "ชบ" for เช้าบ่าย. Never ask which of them.
 Use "all" when the message means every shift that person has on that day (ทั้งวัน, ทุกเวร, เวรทั้งหมด, or a day is swapped without naming a shift such as "แลกวันที่ 3 กับวันที่ 5"). Never ask which of several shifts — use "all".
 
 Rules:

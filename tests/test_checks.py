@@ -67,3 +67,28 @@ def test_edit(roster, codes):
     assert not check_edit(roster, codes, S, 5, "ช", "live").ok  # unchanged
     warn = check_edit(roster, codes, S, 5, "ด", "live", implied_old="บ")
     assert warn.ok and warn.warning
+
+
+def test_from_words_compounds(codes):
+    assert codes.from_words("เช้าบ่าย") == ["ช", "บ"]
+    assert codes.from_words("บ่ายดึก") == ["บ", "ด"]
+    assert codes.from_words("เช้าดึก") == ["ช", "ด"]
+    assert codes.from_words("เช้าบ่ายดึก") == ["ช", "บ", "ด"]
+    assert codes.from_words("เช้า บ่าย และ ดึก") == ["ช", "บ", "ด"]
+    assert codes.from_words("ดึกเช้า") == ["ด", "ช"]
+    assert codes.from_words("บด") == ["บ", "ด"]
+    assert codes.from_words("ทั้งวัน") == ["all"]
+    assert codes.from_words("conference") == ["conference"]
+    assert codes.from_words("xyz") is None
+
+
+def test_norm_shift_orders_and_all(codes):
+    from agent.change.service import _norm_shift
+
+    assert _norm_shift("บ่ายดึก", codes) == "บด"
+    assert _norm_shift("ดึกเช้า", codes) == "ชด"
+    assert _norm_shift("เช้าบ่ายดึก", codes) == "all"
+    assert _norm_shift("ชบด", codes) == "all"
+    assert _norm_shift("เช้า", codes) == "ช"
+    assert _norm_shift("ทั้งวัน", codes) == "all"
+    assert _norm_shift("??", codes) is None
