@@ -9,6 +9,7 @@ def _ward(batch_get):
     ws = MagicMock()
     ws.batch_get.return_value = batch_get
     audit = MagicMock()
+    audit.col_count = 11
     ward = MagicMock()
     ward.tab.side_effect = lambda t: ws if t == "2569-10" else audit
     return ward, ws, audit

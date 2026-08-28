@@ -37,3 +37,11 @@
 {"kind": "swap", "today": "2026-10-01", "text": "แลกเวรทั้งวัน 3 ต.ค. ของศรี กับ ทั้งวัน 5 ต.ค. ของบี", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 3, "a_month": "2569-10", "a_shift": "all", "b_name": "บี", "b_day": 5, "b_month": "2569-10", "b_shift": "all", "missing": [], "clarifying_question_th": null}}
 {"kind": "swap", "today": "2026-10-01", "text": "ศรีแลกวันที่ 3 กับบีวันที่ 5", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 3, "a_month": "2569-10", "a_shift": "all", "b_name": "บี", "b_day": 5, "b_month": "2569-10", "b_shift": "all", "missing": [], "clarifying_question_th": null}}
 {"kind": "swap", "today": "2026-10-01", "text": "ศรี ทุกเวรวันที่ 12 ต.ค. ยกให้บี", "expected": {"swap_type": "give", "a_name": "ศรี", "a_day": 12, "a_month": "2569-10", "a_shift": "all", "b_name": "บี", "b_day": null, "b_month": null, "b_shift": null, "missing": [], "clarifying_question_th": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "แลกเวรเช้า 3 ต.ค. ศรี↔บี 5 ต.ค. และ ดึก 10 ต.ค. กมล↔ศรี 12 ต.ค.", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 3, "a_month": "2569-10", "a_shift": "ช", "b_name": "บี", "b_day": 5, "b_month": "2569-10", "b_shift": "ช", "missing": ["multiple_swaps"], "clarifying_question_th": null}}
+{"kind": "classify", "text": "ใครอยู่เวรดึก 10 ต.ค.", "expected": {"intent": "roster_query"}}
+{"kind": "classify", "text": "ศรีวันที่ 5 เวรอะไร", "expected": {"intent": "roster_query"}}
+{"kind": "classify", "text": "วันที่ 3 ใครอยู่บ้าง", "expected": {"intent": "roster_query"}}
+{"kind": "classify", "text": "พรุ่งนี้บีเวรอะไร", "expected": {"intent": "roster_query"}}
+{"kind": "query", "today": "2026-10-01", "text": "ใครอยู่เวรดึก 10 ต.ค.", "expected": {"name": null, "day": 10, "month": "2569-10", "shift": "ด"}}
+{"kind": "query", "today": "2026-10-01", "text": "ศรีวันที่ 5 เวรอะไร", "expected": {"name": "ศรี", "day": 5, "month": "2569-10", "shift": null}}
+{"kind": "query", "today": "2026-10-01", "text": "วันที่ 3 ใครอยู่บ้าง", "expected": {"name": null, "day": 3, "month": "2569-10", "shift": null}}

@@ -4,7 +4,7 @@ from __future__ import annotations
 from ..thai_date import Month
 from .audit import read_audit
 from .client import Ward
-from .layout import parse_values, tab_title
+from .layout import layout, parse_values, tab_title
 
 
 def _tabs(ward: Ward, month: Month) -> tuple[str, str]:
@@ -17,13 +17,42 @@ def _tabs(ward: Ward, month: Month) -> tuple[str, str]:
 def expected_state(ward: Ward, month: Month) -> dict[tuple[str, int], str]:
     live, planned_t = _tabs(ward, month)
     planned = parse_values(ward.values(planned_t), month)
+    audit = read_audit(ward, month.key)
+    if layout() == "grid":
+        return replay_grid(planned.cells_map(), audit)
     state = dict(planned.cells_map())
-    for a in read_audit(ward, month.key):
+    for a in audit:
         try:
             state[(a["staff_id"], int(a["day"]))] = a["after"]
         except (KeyError, ValueError):
             continue
     return state
+
+
+def replay_grid(planned: dict[tuple[str, int], str], audit: list[dict[str, str]]) -> dict[tuple[str, int], str]:
+    """Grid layout: audit before/after are NAMES in one slot (code in 'slot'). Move that code between people."""
+    from ..shifts import load_shifts
+    from .grid import base_name
+
+    codes = load_shifts()
+    state: dict[tuple[str, int], list[str]] = {k: codes.parse_cell(v) for k, v in planned.items()}
+    for a in audit:
+        try:
+            day, code = int(a["day"]), a.get("slot", "")
+        except (KeyError, ValueError):
+            continue
+        if not code:
+            continue  # legacy row without slot — cannot replay reliably
+        frm, to = base_name(a.get("before", "")), base_name(a.get("after", ""))
+        if frm:
+            lst = state.setdefault((frm, day), [])
+            if code in lst:
+                lst.remove(code)
+        if to:
+            lst = state.setdefault((to, day), [])
+            if code not in lst:
+                lst.append(code)
+    return {k: codes.serialize(v) for k, v in state.items() if v}
 
 
 def detect_drift(ward: Ward, month: Month) -> list[tuple[str, int, str, str]]:

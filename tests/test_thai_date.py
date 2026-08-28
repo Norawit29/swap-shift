@@ -46,3 +46,20 @@ def test_parse_link_command():
     assert parse_command("ตรวจตาราง 2569-10").name == "ตรวจตาราง"
     assert parse_command("ตารางเดือนหน้าออกยัง") is not None  # arg 'หน้าออกยัง' → month parse fails → polite reply
     assert parse_command("แลกเวร ตาราง") is None
+
+
+def test_roster_link_tag():
+    from unittest.mock import MagicMock
+
+    from agent.commands import roster_link
+
+    ward = MagicMock()
+    ward.tab.return_value = None  # no _control
+    ward.sheet_titles.return_value = ["สิงหาคม 2569"]
+    ward.tab_url.return_value = "https://x/#gid=1"
+    import os
+    os.environ["ROSTER_LAYOUT"] = "grid"
+    from agent.settings import get_settings
+    get_settings.cache_clear()
+    out = roster_link(ward, "ส.ค.", today=date(2026, 8, 27))
+    assert "(ยังไม่ประกาศ)" in out and out.endswith("https://x/#gid=1")

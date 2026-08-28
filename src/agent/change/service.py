@@ -19,7 +19,7 @@ from ..sheets.layout import load_roster
 from ..sheets.staff import read_staff
 from ..sheets.writer import CellWrite, SnapshotMismatch, apply_writes
 from ..shifts import load_shifts
-from ..thai_date import Month
+from ..thai_date import Month, fmt_day
 from .checks import CheckResult, check_edit, check_swap
 from .models import ChangeRequest, utcnow
 from .name_resolver import Staff, resolve
@@ -104,7 +104,8 @@ class ChangeService:
         return self._continue_swap(cr, ex, ctl, staff, msg)
 
     def _continue_swap(self, cr: ChangeRequest, ex: SwapExtraction, ctl, staff: list[Staff], msg: Incoming) -> Reply:
-        missing = list(ex.missing)
+        multi = "multiple_swaps" in ex.missing
+        missing = [f for f in ex.missing if f != "multiple_swaps"]
         questions: list[str] = []
         # names
         a_res = resolve(ex.a_name or "", staff) if ex.a_name else None
@@ -162,7 +163,10 @@ class ChangeService:
             cr.a_shift = self.codes.serialize(res.a_codes)
             if not give:
                 cr.b_shift = self.codes.serialize(res.b_codes)
-        return self._finish_check(cr, res, msg)
+        reply = self._finish_check(cr, res, msg)
+        if multi:
+            reply.extra.append(T.MULTI_NOTE)
+        return reply
 
     # ── roster edit ─────────────────────────────────────────────
     def handle_edit(self, msg: Incoming, prior: ChangeRequest | None = None) -> Reply:
@@ -217,13 +221,57 @@ class ChangeService:
         cr.old_value = roster.cell(target.staff_id, ex.day) if roster.has(target.staff_id) else None  # type: ignore[arg-type]
         return self._finish_check(cr, check, msg)
 
+    # ── roster query (read-only) ───────────────────────────────
+    def answer_query(self, msg: Incoming) -> Reply:
+        ctl, staff = self._ctx()
+        q = self.llm.extract_query(msg.text, active_months(ctl), msg.today)
+        today_m = Month.from_date(msg.today or date.today())
+        m = _month_or(q.month, current_month(ctl, today_m))
+        roster = self._roster(m)
+        if roster is None:
+            return Reply(f"ยังไม่มีตารางเดือน {m.label} ค่ะ")
+        person = None
+        if q.name:
+            r = resolve(q.name, staff)
+            if r.ambiguous:
+                return Reply(f"\"{q.name}\" หมายถึงใครคะ ({' / '.join(s.display for s in r.matches[:4])})")
+            if not r.ok:
+                return Reply(f"ไม่พบชื่อ \"{q.name}\" ในตารางค่ะ")
+            person = r.staff
+        lab = self.codes.label
+        if person and q.day:
+            if not m.contains(q.day):
+                return Reply(f"เดือน {m.abbr} ไม่มีวันที่ {q.day}")
+            cs = self.codes.parse_cell(roster.cell(person.staff_id, q.day)) if roster.has(person.staff_id) else []
+            return Reply(f"📋 {person.display} {fmt_day(m, q.day)}: " + ("+".join(lab(c) for c in cs) if cs else self.codes.off_label))
+        if person:
+            items = [(d, self.codes.parse_cell(v)) for (sid, d), v in sorted(roster.cells_map().items(), key=lambda kv: kv[0][1])
+                     if sid == person.staff_id and v]
+            if not items:
+                return Reply(f"📋 {person.display} ไม่มีเวรในเดือน {m.label}")
+            body = ", ".join(f"{d} {''.join(c for c in cs)}" for d, cs in items)
+            return Reply(f"📋 {person.display} {m.label} ({len(items)} วัน)\n{body}")
+        if q.day:
+            if not m.contains(q.day):
+                return Reply(f"เดือน {m.abbr} ไม่มีวันที่ {q.day}")
+            by_code: dict[str, list[str]] = {}
+            for (sid, d), v in roster.cells_map().items():
+                if d != q.day:
+                    continue
+                for c in self.codes.parse_cell(v):
+                    by_code.setdefault(c, []).append(roster.names.get(sid, sid))
+            wanted = [q.shift] if q.shift else list(self.codes.codes)
+            lines = [f"{lab(c)}: {', '.join(by_code.get(c, [])) or '-'}" for c in wanted if c in by_code or q.shift]
+            return Reply(f"📋 {fmt_day(m, q.day)}\n" + ("\n".join(lines) or "ไม่มีเวร"))
+        return Reply("ถามได้เช่น: ใครอยู่เวรดึก 10 ก.ย. / ธนดล วันที่ 5 เวรอะไร / ธนดลเดือนนี้เวรอะไรบ้าง")
+
     # ── shared ─────────────────────────────────────────────────
     def _finish_check(self, cr: ChangeRequest, res: CheckResult, msg: Incoming) -> Reply:
         cr.check_result = res.as_dict()
         if not res.ok:
             transition(cr, "REJECTED")
             return Reply(T.reject(res.reason or ""))
-        cr.snapshot = {"writes": [[w.staff_id, w.day, w.row, w.col, w.before, w.after] for w in res.writes],
+        cr.snapshot = {"writes": [[w.staff_id, w.day, w.row, w.col, w.before, w.after, w.code] for w in res.writes],
                        "lines": res.lines, "tab": getattr(self, "_tab", cr.month)}
         transition(cr, "PENDING_CONFIRM")
         self.db.flush()

@@ -70,7 +70,7 @@ class GridRoster(RosterBase):
                 raise PlanError(f"ไม่พบ {m.from_sid} ในเวร {load_shifts().label(m.code)} วันที่ {m.day}")
             s = cands[0]
             pending[(s.row, s.col)] = (s, _replace_name(s.raw, m.to_sid))
-        return [CellWrite(s.name, s.day, s.row, s.col, s.raw, after) for s, after in pending.values()
+        return [CellWrite(s.name, s.day, s.row, s.col, s.raw, after, s.code) for s, after in pending.values()
                 if s.raw != after]
 
     def plan_set(self, sid: str, day: int, new_codes: list[str]) -> list[CellWrite]:
@@ -84,7 +84,7 @@ class GridRoster(RosterBase):
                 want.remove(s.code)
                 used.add((s.row, s.col))
             else:
-                writes.append(CellWrite(sid, day, s.row, s.col, s.raw, ""))
+                writes.append(CellWrite(sid, day, s.row, s.col, s.raw, "", s.code))
                 used.add((s.row, s.col))
         for code in want:
             free = [s for s in self._slots(day, code=code) if not s.name and (s.row, s.col) not in used]
@@ -92,7 +92,7 @@ class GridRoster(RosterBase):
                 raise PlanError(f"ไม่มีช่องว่างสำหรับเวร{codes.label(code)}วันที่ {day}")
             f = free[0]
             used.add((f.row, f.col))
-            writes.append(CellWrite(sid, day, f.row, f.col, f.raw, sid))
+            writes.append(CellWrite(sid, day, f.row, f.col, f.raw, sid, code))
         return writes
 
 

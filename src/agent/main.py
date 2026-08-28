@@ -131,6 +131,10 @@ def _handle(ev: dict, line: LineClient, llm: LLM, today: date | None) -> None:
                 _send(line, token, group_id, r)
                 return
 
+        if action and pending is None and len(text) <= 12:
+            log.info("route: confirm-word with no pending → silent")
+            return  # "ยืนยัน"/"ok ค่ะ" with nothing open — no LLM call, stay silent
+
         # 4) classify
         c = llm.classify(text)
         log.info("classify: intent=%s conf=%.2f", c.intent, c.confidence)
@@ -141,6 +145,9 @@ def _handle(ev: dict, line: LineClient, llm: LLM, today: date | None) -> None:
                 return
             r = svc.confirm(pending.id, user_id) if action != "cancel" else svc.cancel(user_id, pending.id)
             _send(line, token, group_id, r)
+            return
+        if c.intent == "roster_query":
+            _send(line, token, group_id, svc.answer_query(Incoming(group_id, user_id, "", text, today)))
             return
         if c.intent == "roster_edit" and not is_head:
             _send(line, token, group_id, Reply(T.HEAD_ONLY))

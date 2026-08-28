@@ -25,6 +25,7 @@ class CellWrite:
     col: int
     before: str  # value at request time (snapshot)
     after: str
+    code: str = ""  # grid layout: shift code of the slot (for drift replay)
 
 
 def apply_writes(ward: Ward, tab: str, writes: list[CellWrite], change_id: str, reporter: str,
@@ -58,8 +59,8 @@ def apply_writes(ward: Ward, tab: str, writes: list[CellWrite], change_id: str, 
 
         sync_colors(ward, tab, writes, colors)
     audit = ensure_audit(ward)
-    rows = audit_rows(month_key, [(w.staff_id, w.day, w.before, w.after) for w in writes], change_id, reporter,
-                      kind, raw_text)
+    rows = audit_rows(month_key, [(w.staff_id, w.day, w.before, w.after, w.code) for w in writes], change_id,
+                      reporter, kind, raw_text)
     with_retry(lambda: audit.append_rows(rows, value_input_option="RAW"))
 
 

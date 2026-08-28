@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Intent = Literal["swap_report", "roster_edit", "confirm_reply", "command", "other"]
+Intent = Literal["swap_report", "roster_edit", "roster_query", "confirm_reply", "command", "other"]
 ShiftCode = Literal["ช", "บ", "ด", "conference", "all"]  # all = ทุกเวรของวันนั้น (ทั้งวัน)
 
 
@@ -39,3 +39,11 @@ class EditExtraction(_Strict):
     new_shift: str | None  # ช/บ/ด/conference or "" for off
     missing: list[str]
     clarifying_question_th: str | None
+
+
+class RosterQuery(_Strict):
+    """Question about the roster: who is on a shift/day, or what shift a person has."""
+    name: str | None
+    day: int | None
+    month: str | None
+    shift: ShiftCode | None

@@ -16,7 +16,7 @@ EXAMPLES = [json.loads(l) for l in EX.read_text(encoding="utf-8").splitlines() i
 
 def test_examples_cover_required_cases():
     kinds = {e["kind"] for e in EXAMPLES}
-    assert kinds == {"swap", "classify", "edit"}
+    assert kinds == {"swap", "classify", "edit", "query"}
     texts = " ".join(e["text"] for e in EXAMPLES)
     assert "ok ค่ะ" in texts and len(EXAMPLES) >= 30
 
@@ -41,8 +41,13 @@ def test_other_schemas():
 # ── end-to-end with fake LLM + fake ward ──────────────────────────────
 
 class FakeLLM:
-    def __init__(self, swap=None, edit=None):
-        self._swap, self._edit = swap, edit
+    def __init__(self, swap=None, edit=None, query=None):
+        self._swap, self._edit, self._query = swap, edit, query
+
+    def extract_query(self, text, months, today=None):
+        from agent.llm.schemas import RosterQuery
+
+        return RosterQuery.model_validate(self._query)
 
     def classify(self, text):
         return ClassifyResult(intent="swap_report", confidence=0.9)
@@ -70,6 +75,7 @@ class FakeWard:
         from unittest.mock import MagicMock
 
         ws = MagicMock()
+        ws.col_count = 11
         ws.get_all_values.return_value = self.rows[title]
         ws.batch_get.side_effect = lambda ranges: [[[self._cell(title, r)]] for r in ranges]
         ws.batch_update.side_effect = lambda body, **kw: self.written.extend(body)
@@ -180,3 +186,24 @@ def test_e2e_edit(roster_values):
         assert r.quick_reply_id and '5 ต.ค. ศรี: "ช" → "ด"' in r.text
         assert svc.confirm(r.quick_reply_id, "UH").text.startswith("📋")
         assert ward.written == [{"range": "G2", "values": [["ด"]]}]
+
+
+def test_multiple_swaps_note(roster_values):
+    ward, llm = _svc(roster_values, FakeLLM(swap={**EX_SWAP, "missing": ["multiple_swaps"]}))
+    with session() as db:
+        r = ChangeService(ward, llm, db).handle_swap_report(Incoming("C1", "U1", "ศรี", "x", TODAY))
+        assert r.quick_reply_id and r.extra and "หลายรายการ" in r.extra[0]
+
+
+def test_roster_query(roster_values):
+    ward, llm = _svc(roster_values, FakeLLM(query={"name": None, "day": 3, "month": "2569-10", "shift": "ด"}))
+    with session() as db:
+        r = ChangeService(ward, llm, db).answer_query(Incoming("C1", "U1", "", "ใครเวรดึก 3", TODAY))
+        assert r.text == "📋 3 ต.ค.\nดึก: ศรี"
+    ward, llm = _svc(roster_values, FakeLLM(query={"name": "พี่ศรี", "day": 5, "month": None, "shift": None}))
+    with session() as db:
+        assert ChangeService(ward, llm, db).answer_query(Incoming("C1", "U1", "", "x", TODAY)).text == "📋 ศรี 5 ต.ค.: เช้า"
+    ward, llm = _svc(roster_values, FakeLLM(query={"name": "บี", "day": None, "month": None, "shift": None}))
+    with session() as db:
+        t = ChangeService(ward, llm, db).answer_query(Incoming("C1", "U1", "", "x", TODAY)).text
+        assert t.startswith("📋 บี ตุลาคม 2569 (") and "1 บ" in t

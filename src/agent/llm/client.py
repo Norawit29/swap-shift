@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from ..settings import ROOT, get_settings
 from ..thai_date import today_be
-from .schemas import ClassifyResult, EditExtraction, SwapExtraction
+from .schemas import ClassifyResult, EditExtraction, RosterQuery, SwapExtraction
 
 log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
@@ -67,6 +67,13 @@ class LLM:
         sys = _prompt("extract_edit.md").format(today_ce=d.isoformat(), today_be=ybe,
                                                 active_months=", ".join(active_months) or "-")
         return _parse(sys, text, EditExtraction, examples=_examples("edit"))
+
+
+    def extract_query(self, text: str, active_months: list[str], today: date | None = None) -> RosterQuery:
+        d, ybe = today_be(today)
+        sys = _prompt("extract_query.md").format(today_ce=d.isoformat(), today_be=ybe,
+                                                 active_months=", ".join(active_months) or "-")
+        return _parse(sys, text, RosterQuery, examples=_examples("query"))
 
 
 @lru_cache

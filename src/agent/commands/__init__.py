@@ -105,7 +105,7 @@ def roster_link(ward: Ward, arg: str, today: date | None = None) -> str:
     if title is None:
         return f"ยังไม่มีตารางเดือน {m.label} ค่ะ"
     status = month_status(ctl, m)
-    tag = {"draft": " (ร่าง)", "closed": " (ปิดแล้ว)"}.get(status, "")
+    tag = {"draft": " (ร่าง — ยังไม่ประกาศ)", "": " (ยังไม่ประกาศ)", "closed": " (ปิดแล้ว)"}.get(status, "")
     return f"📅 ตารางเวร {m.label}{tag}\n{ward.tab_url(title)}"
 
 

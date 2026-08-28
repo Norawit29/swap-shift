@@ -12,3 +12,4 @@ Rules:
 - If a day is given without month: use the current active month; if that day already passed in the current month, use the next active month and add "month_ambiguous" to missing.
 - Keep names exactly as written (nicknames allowed). Strip prefixes พี่/น้อง/คุณ only in your head, not in output.
 - missing: list of field names that could not be determined. clarifying_question_th: one short polite Thai question covering all missing fields, or null.
+- If the message contains MORE THAN ONE swap, extract only the FIRST one and add "multiple_swaps" to missing (do not ask which one).
