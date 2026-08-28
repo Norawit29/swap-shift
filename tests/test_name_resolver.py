@@ -28,3 +28,24 @@ def test_not_found_and_inactive(staff):
     assert not resolve("มานี", staff).ok and not resolve("มานี", staff).ambiguous
     assert not resolve("เก่า", staff).ok  # inactive excluded
     assert not resolve("", staff).ok
+
+
+def test_fuzzy_typo_single_candidate(staff):
+    r = resolve("ศรีี", staff)  # extra vowel
+    assert r.ok and r.staff.staff_id == "N001"  # caught by prefix stage
+    r2 = resolve("บุศบา", staff)  # บุษบา misspelt
+    assert r2.ok and r2.staff.staff_id == "N002"
+
+
+def test_fuzzy_real_names():
+    from agent.change.name_resolver import Staff
+
+    names = ["ครองวงศ์", "ภควดี", "ธนดล", "คมสันติ", "ปวีณอร", "อรรถสิทธิ์", "ภัทรพล", "จุฑามาศ", "วรวรรธน์",
+             "สุรีย์ภรณ์", "นรวิชญ์", "ขวัญศิริ", "สุธาพร", "ธนวัฒน์"]
+    st = [Staff(n, n, (n,)) for n in names]
+    assert resolve("ธนดน", st).staff.staff_id == "ธนดล"
+    assert resolve("จุฑามาส", st).staff.staff_id == "จุฑามาศ"
+    assert resolve("อรรถสิทธ์", st).staff.staff_id == "อรรถสิทธิ์"
+    assert resolve("สุธาภร", st).staff.staff_id == "สุธาพร"
+    assert not resolve("สมชาย", st).ok and not resolve("สมชาย", st).ambiguous  # nothing similar → not found
+    assert not resolve("ธน", st).ok and resolve("ธน", st).ambiguous            # prefix stage still asks
