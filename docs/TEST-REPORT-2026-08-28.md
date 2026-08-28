@@ -9,7 +9,8 @@ A7 missing dates → asks → merged answer → summary · A8 พรุ่งน
 A13 conference↔เช้า rejected · A17 off day · B1 nurse edit blocked · B2 edit to free slot · B3/B5 edit rejects · C1 head-only · C2 re-publish ·
 C3/C6 missing month · C5 · D1/D2/D3/D6 silent · A1b other-user confirm blocked · A1d double confirm · E1b TTL expiry · E2b snapshot mismatch.
 
-## Bugs / gaps found (NOT fixed yet)
+## Bugs / gaps found — status after fix commit edeac6b
+(1 fixed · 2 open by decision · 3 fixed · 4 fixed · 5 fixed · 6 fixed · 7 n/a)
 1. **Drift detector wrong for grid layout** (`sheets/drift.py`): `_audit.after` holds a *name* in grid layout but `expected_state` treats it as a *code*, so every applied swap becomes a false "drift" (e.g. `('ภควดี', 2, 'นรวิชญ์', '')`). `/cron/drift` would spam the group every 30 min. Real edits are detected (`('ธนดล', 18, 'ช', '')`).
 2. **Sheets read quota (60 reads/min/user)**: one report costs ~6 reads (_control, _staff, roster for staff fallback, roster again, colours on apply). Burst of ~8 reports/min → 429; retry backoff (1+2+4 s) sometimes insufficient (A10 took 17 s). Low risk for one ward, real risk with several wards on one service account. Needs caching (_control/_staff per minute) or fewer reads.
 3. **`ตารางเวร ส.ค.`** returns a link with no status tag for a month that is neither active nor published (`month_status` = "") — should say (ยังไม่ประกาศ).
