@@ -28,7 +28,19 @@ ngrok http 8080        # put https://xxx.ngrok.app/webhook in LINE console
 pytest
 ```
 
-### 4. Deploy (Cloud Run)
+### 4a. Deploy (Railway — recommended)
+1. railway.app → New Project → **Deploy from GitHub repo** → `Norawit29/swap-shift` (Dockerfile is detected; `railway.toml` sets the health check).
+2. Service → **Variables** → paste every line of `.env` except `DATABASE_URL`, then add:
+   - `DATABASE_URL=sqlite:////data/agent.db`
+   - `GOOGLE_SERVICE_ACCOUNT_JSON=<the whole JSON on one line>` (raw JSON is accepted, no file needed)
+   - `INTERNAL_CRON=true`
+3. Service → **Volumes** → add a volume mounted at `/data` (keeps pending requests across deploys).
+4. Service → **Settings → Networking → Generate Domain** → copy `https://<name>.up.railway.app`.
+5. LINE Developers → Messaging API → Webhook URL = `https://<name>.up.railway.app/webhook` → Verify → Use webhook ON.
+6. Check `https://<name>.up.railway.app/healthz` → `{"ok":true}`; send `สถานะ` in the group.
+Redeploys happen automatically on every push to `main`.
+
+### 4b. Deploy (Cloud Run)
 ```sh
 gcloud run deploy line-swap-agent --source . --region asia-southeast1 --set-env-vars "$(paste -sd, .env)"
 ```
