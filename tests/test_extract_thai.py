@@ -87,6 +87,9 @@ class FakeWard:
             raise KeyError(title)
         return self.rows[title]
 
+    def tab_url(self, title):
+        return f"https://docs.google.com/spreadsheets/d/FAKE/edit#gid={abs(hash(title)) % 1000}"
+
 
 EX_SWAP = dict(swap_type="exchange", a_name="ศรี", a_day=2, a_month="2569-10", a_shift="ด", b_name="บี", b_day=4,
                b_month="2569-10", b_shift="ด", missing=[], clarifying_question_th=None)
@@ -109,6 +112,7 @@ def test_e2e_report_confirm_applies(roster_values):
         assert svc.confirm(cid, "U2").text == "เฉพาะผู้แจ้งเท่านั้น"
         ok = svc.confirm(cid, "U1")
         assert ok.text.startswith("📋 อัปเดตตารางแล้ว #" + cid)
+        assert "📅 https://docs.google.com/spreadsheets/d/FAKE" in ok.text
         assert {b["range"]: b["values"][0][0] for b in ward.written} == {"D2": "", "D3": "ชด", "F3": "", "F2": "ด"}
         assert svc.confirm(cid, "U1").text == "ไม่มีรายการรอยืนยัน"  # already applied
         from agent.change.models import ChangeRequest

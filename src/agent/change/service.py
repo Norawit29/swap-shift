@@ -250,7 +250,7 @@ class ChangeService:
             cr.check_result = {**(cr.check_result or {}), "ok": False, "reason": str(e)}
             return Reply(T.reject_plain(T.SHEET_CHANGED))
         transition(cr, "APPLIED")
-        return Reply(T.applied(cr.id, lines))
+        return Reply(T.applied(cr.id, lines) + f"\n📅 {self.ward.tab_url(tab)}")
 
     def cancel(self, user_id: str, cr_id: str | None = None) -> Reply:
         cr = self.db.get(ChangeRequest, cr_id) if cr_id else self.open_request(user_id)
