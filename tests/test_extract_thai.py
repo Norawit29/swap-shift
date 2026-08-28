@@ -207,3 +207,17 @@ def test_roster_query(roster_values):
     with session() as db:
         t = ChangeService(ward, llm, db).answer_query(Incoming("C1", "U1", "", "x", TODAY)).text
         assert t.startswith("📋 บี ตุลาคม 2569 (") and "1 บ" in t
+
+
+def test_multi_code_shift_string(roster_values):
+    # อ้อ day 3 = ชบ ; give ชบ to ศรี (ศรี day 3 = ด) → ok, 2 codes move
+    ex = {**EX_SWAP, "swap_type": "give", "a_name": "อ้อ", "a_day": 3, "a_shift": "ชบ", "b_name": "ศรี",
+          "b_day": None, "b_shift": None, "b_month": None}
+    ward, llm = _svc(roster_values, FakeLLM(swap=ex))
+    with session() as db:
+        r = ChangeService(ward, llm, db).handle_swap_report(Incoming("C1", "U1", "อ้อ", "x", TODAY))
+        assert r.quick_reply_id and "3 ต.ค. เช้า: อ้อ → ศรี (ยกเวร)" in r.text and "3 ต.ค. บ่าย: อ้อ → ศรี (ยกเวร)" in r.text
+    bad = {**EX_SWAP, "a_shift": "xyz"}
+    ward, llm = _svc(roster_values, FakeLLM(swap=bad))
+    with session() as db:
+        assert "รหัสเวรไม่ถูกต้อง" in ChangeService(ward, llm, db).handle_swap_report(Incoming("C1", "U1", "ศรี", "x", TODAY)).text

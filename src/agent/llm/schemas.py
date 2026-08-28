@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 Intent = Literal["swap_report", "roster_edit", "roster_query", "confirm_reply", "command", "other"]
-ShiftCode = Literal["ช", "บ", "ด", "conference", "all"]  # all = ทุกเวรของวันนั้น (ทั้งวัน)
+ShiftCode = str  # one code (ช/บ/ด/conference), several concatenated ("บด" = บ่าย+ดึก), or "all" = ทั้งวัน; validated in code
 
 
 class _Strict(BaseModel):

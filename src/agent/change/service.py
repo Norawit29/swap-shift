@@ -149,16 +149,20 @@ class ChangeService:
             return Reply(T.reject_plain(T.CROSS_MONTH))
         a, b = a_res.staff, b_res.staff  # type: ignore[union-attr]
         cr.month = a_m.key
-        cr.a_staff_id, cr.a_day, cr.a_shift = a.staff_id, ex.a_day, ex.a_shift
+        a_sh, b_sh = _norm_shift(ex.a_shift, self.codes), _norm_shift(ex.b_shift, self.codes)
+        if a_sh is None or (not give and b_sh is None):
+            transition(cr, "REJECTED")
+            return Reply(T.reject_plain(f"รหัสเวรไม่ถูกต้อง: {ex.a_shift if a_sh is None else ex.b_shift}"))
+        cr.a_staff_id, cr.a_day, cr.a_shift = a.staff_id, ex.a_day, a_sh
         cr.b_staff_id = b.staff_id
-        cr.b_day, cr.b_shift = (None, None) if give else (ex.b_day, ex.b_shift)
+        cr.b_day, cr.b_shift = (None, None) if give else (ex.b_day, b_sh)
         cr.swap_type = "give" if give else "exchange"
         roster = self._roster(a_m)
         if roster is None:
             transition(cr, "REJECTED")
             return Reply(T.reject_plain(f"ไม่พบตารางเดือน {a_m.label}"))
-        res = check_swap(roster, self.codes, a, cr.a_day, cr.a_shift, b, cr.b_day, cr.b_shift,
-                         month_status(ctl, a_m))
+        res = check_swap(roster, self.codes, a, cr.a_day, _shift_arg(cr.a_shift, self.codes), b, cr.b_day,
+                         _shift_arg(cr.b_shift, self.codes), month_status(ctl, a_m))
         if res.ok:  # record the concrete codes (resolves "all")
             cr.a_shift = self.codes.serialize(res.a_codes)
             if not give:
@@ -329,6 +333,27 @@ def expire_all(db: Session) -> list[ChangeRequest]:
         transition(cr, "EXPIRED")
         out.append(cr)
     return out
+
+
+def _norm_shift(v: str | None, codes) -> str | None:
+    """LLM shift value → 'all' | serialized codes ('ช', 'บด') | None if invalid."""
+    if v is None:
+        return None
+    t = str(v).strip()
+    if t.lower() in ("all", "ทั้งวัน", "*"):
+        return "all"
+    try:
+        lst = codes.parse_cell(t)
+    except Exception:  # noqa: BLE001
+        return None
+    return codes.serialize(lst) if lst else None
+
+
+def _shift_arg(v: str | None, codes) -> str | list[str] | None:
+    if v is None or v == "all":
+        return v
+    lst = codes.parse_cell(v)
+    return lst[0] if len(lst) == 1 else lst
 
 
 def _month_or(key: str | None, default: Month) -> Month:

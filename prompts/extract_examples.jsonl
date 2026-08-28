@@ -45,3 +45,5 @@
 {"kind": "query", "today": "2026-10-01", "text": "ใครอยู่เวรดึก 10 ต.ค.", "expected": {"name": null, "day": 10, "month": "2569-10", "shift": "ด"}}
 {"kind": "query", "today": "2026-10-01", "text": "ศรีวันที่ 5 เวรอะไร", "expected": {"name": "ศรี", "day": 5, "month": "2569-10", "shift": null}}
 {"kind": "query", "today": "2026-10-01", "text": "วันที่ 3 ใครอยู่บ้าง", "expected": {"name": null, "day": 3, "month": "2569-10", "shift": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "แลกเวรบ่ายดึก ศรี 21 กับ บี 25 บ่ายดึก", "expected": {"swap_type": "exchange", "a_name": "ศรี", "a_day": 21, "a_month": "2569-10", "a_shift": "บด", "b_name": "บี", "b_day": 25, "b_month": "2569-10", "b_shift": "บด", "missing": [], "clarifying_question_th": null}}
+{"kind": "swap", "today": "2026-10-01", "text": "ศรี เช้าและบ่าย 3 ต.ค. ยกให้บี", "expected": {"swap_type": "give", "a_name": "ศรี", "a_day": 3, "a_month": "2569-10", "a_shift": "ชบ", "b_name": "บี", "b_day": null, "b_month": null, "b_shift": null, "missing": [], "clarifying_question_th": null}}
