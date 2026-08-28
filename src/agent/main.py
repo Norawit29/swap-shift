@@ -9,7 +9,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 
 from .change.models import utcnow
 from .change.service import ChangeService, Incoming, Reply, expire_all
-from .commands import HEAD_ONLY_CMDS, go_live, parse_command, run_admin
+from .commands import HEAD_ONLY_CMDS, go_live, parse_command, roster_link, run_admin
 from .db import init_db, session
 from .line import templates as T
 from .line.client import LineClient
@@ -106,6 +106,8 @@ def _handle(ev: dict, line: LineClient, llm: LLM, today: date | None) -> None:
                     return
                 name = line.display_name(group_id, user_id)
                 _send(line, token, group_id, Reply(run_admin(cmd, ward, name, today)))
+            elif cmd.name == "ตาราง":
+                _send(line, token, group_id, Reply(roster_link(ward, cmd.arg, today)))
             elif cmd.name == "สถานะ":
                 _send(line, token, group_id, svc.status(user_id))
             elif cmd.name == "ยกเลิก":

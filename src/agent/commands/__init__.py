@@ -20,6 +20,8 @@ from ..thai_date import Month, parse_month
 log = logging.getLogger(__name__)
 
 _CMD_RE = re.compile(r"^\s*(ประกาศตาราง|ตรวจตาราง|ปิดตาราง|สถานะ|ยกเลิก)\s*(.*)$")
+# ขอตาราง / ตารางเวร / ลิงก์ตาราง [เดือน] → link to the month tab (anyone)
+_LINK_RE = re.compile(r"^\s*(?:ขอ)?\s*(?:ลิงก์|ลิ้งก์|ลิ้ง|link)?\s*ตาราง(?:เวร)?\s*(?:เดือน)?\s*([^\s].*)?\s*(?:หน่อย|ด้วย|ค่ะ|คะ|ครับ|นะ)*\s*$")
 HEAD_ONLY_CMDS = {"ประกาศตาราง", "ตรวจตาราง", "ปิดตาราง"}
 
 
@@ -31,7 +33,13 @@ class Command:
 
 def parse_command(text: str) -> Command | None:
     m = _CMD_RE.match(text or "")
-    return Command(m.group(1), m.group(2).strip()) if m else None
+    if m:
+        return Command(m.group(1), m.group(2).strip())
+    m = _LINK_RE.match(text or "")
+    if m:
+        arg = re.sub(r"(หน่อย|ด้วย|ค่ะ|คะ|ครับ|นะ)+$", "", (m.group(1) or "").strip()).strip()
+        return Command("ตาราง", arg)
+    return None
 
 
 def _month(arg: str, today: date | None) -> Month | None:
@@ -74,6 +82,31 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
         set_status(ward, m, "closed", by=by_display)
         return T.closed(m, n, [f"• {k}: {v}" for k, v in sorted(per.items(), key=lambda kv: -kv[1])])
     return "?"
+
+
+def roster_link(ward: Ward, arg: str, today: date | None = None) -> str:
+    """ตาราง [เดือน] → link to that month's tab (default: current active month)."""
+    from ..sheets.control import current_month
+    from ..sheets.layout import tab_title
+
+    ctl = read_control(ward)
+    cur = current_month(ctl, Month.from_date(today or date.today()))
+    if arg in ("หน้า", "ถัดไป"):
+        m, arg = cur.next(), ""
+    elif arg in ("นี้", "ปัจจุบัน"):
+        m, arg = cur, ""
+    else:
+        m = _month(arg, today) if arg else None
+    if arg and m is None:
+        return f"ไม่เข้าใจเดือน \"{arg}\" ค่ะ เช่น ตารางเวร ต.ค. หรือ ตารางเวร 2569-10"
+    if m is None:
+        m = cur
+    title = tab_title(ward, m)
+    if title is None:
+        return f"ยังไม่มีตารางเดือน {m.label} ค่ะ"
+    status = month_status(ctl, m)
+    tag = {"draft": " (ร่าง)", "closed": " (ปิดแล้ว)"}.get(status, "")
+    return f"📅 ตารางเวร {m.label}{tag}\n{ward.tab_url(title)}"
 
 
 def go_live(ward: Ward, today: date) -> list[str]:

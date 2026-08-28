@@ -56,6 +56,7 @@ touching the Sheet.
 | `ประกาศตาราง 2569-10` | snapshot `_planned`, protect tab (service account sole editor), status=published, post link |
 | `ปิดตาราง 2569-09` | status=closed, build `_diff`, reply per-person delta |
 | `สถานะ` / `ยกเลิก` | anyone: own pending change |
+| `ตาราง` / `ตารางเวร` / `ขอตารางเวร [เดือน]` | anyone: link to the month tab (default current month; `เดือนหน้า` ok) |
 
 Month accepted as `2569-10`, `10/2569`, `ต.ค.`, `ตุลาคม`, `ต.ค. 69`.
 

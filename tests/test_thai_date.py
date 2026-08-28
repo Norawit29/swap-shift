@@ -33,3 +33,16 @@ def test_month_props():
 
 def test_month_index():
     assert month_index("พ.ย.") == 11 and month_index("12") == 12 and month_index("x") is None
+
+
+def test_parse_link_command():
+    from agent.commands import parse_command
+
+    for t in ("ตาราง", "ตารางเวร", "ขอตารางเวร", "ขอตารางเวรหน่อย", "ลิงก์ตาราง", "ขอ ตารางเวร ค่ะ"):
+        c = parse_command(t)
+        assert c and c.name == "ตาราง" and c.arg == "", t
+    assert parse_command("ตารางเวร ต.ค.").arg == "ต.ค."
+    assert parse_command("ขอตารางเวรเดือน 2569-10 หน่อยค่ะ").arg == "2569-10"
+    assert parse_command("ตรวจตาราง 2569-10").name == "ตรวจตาราง"
+    assert parse_command("ตารางเดือนหน้าออกยัง") is not None  # arg 'หน้าออกยัง' → month parse fails → polite reply
+    assert parse_command("แลกเวร ตาราง") is None
