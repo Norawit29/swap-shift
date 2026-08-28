@@ -43,9 +43,27 @@ def apply_writes(ward: Ward, tab: str, writes: list[CellWrite], change_id: str, 
     if get_settings().dry_run:
         log.info("DRY_RUN: would write %s", [(w.staff_id, w.day, w.before, w.after) for w in writes])
         return
+    colors = None
+    if _grid_colors():
+        from .colors import person_colors, read_cell_colors
+
+        try:
+            colors = person_colors(read_cell_colors(ward, tab))  # read BEFORE names move
+        except Exception as e:  # noqa: BLE001
+            log.warning("colour read failed: %s", e)
     body = [{"range": rowcol_to_a1(w.row, w.col), "values": [[w.after]]} for w in writes]
     with_retry(lambda: ws.batch_update(body, value_input_option="RAW"))
+    if colors is not None:
+        from .colors import sync_colors
+
+        sync_colors(ward, tab, writes, colors)
     audit = ensure_audit(ward)
     rows = audit_rows(month_key, [(w.staff_id, w.day, w.before, w.after) for w in writes], change_id, reporter,
                       kind, raw_text)
     with_retry(lambda: audit.append_rows(rows, value_input_option="RAW"))
+
+
+def _grid_colors() -> bool:
+    from .colors import is_grid
+
+    return is_grid()
