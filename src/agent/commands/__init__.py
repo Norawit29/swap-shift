@@ -73,6 +73,7 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
             ward.ss.duplicate_sheet(src.id, new_sheet_name=planned)
         protect_tab(ward, title)
         protect_tab(ward, planned)
+        bring_to_front(ward, title, hide=[planned])
         set_status(ward, m, "published", by=by_display)
         return T.published(m, ward.tab_url(title))
     if cmd.name == "ปิดตาราง":
@@ -80,6 +81,9 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
             return f"ตาราง {m.label} สถานะ {status or 'ไม่มี'} ปิดไม่ได้"
         n, per = build_diff(ward, m)
         set_status(ward, m, "closed", by=by_display)
+        t = tab_title_for(ward, m)
+        if t:
+            _hide(ward, [f"{t}_diff"])
         return T.closed(m, n, [f"• {k}: {v}" for k, v in sorted(per.items(), key=lambda kv: -kv[1])])
     return "?"
 
@@ -109,6 +113,33 @@ def roster_link(ward: Ward, arg: str, today: date | None = None) -> str:
     return f"📅 ตารางเวร {m.label}{tag}\n{ward.tab_url(title)}"
 
 
+def bring_to_front(ward: Ward, title: str, hide: list[str] | None = None) -> None:
+    """Make the tab the first (leftmost) so the bare spreadsheet link opens on it; hide helper tabs."""
+    try:
+        ws = ward.tab(title)
+        if ws is not None and ws.index != 0:
+            ws.update_index(0)
+        _hide(ward, hide or [])
+    except Exception as e:  # noqa: BLE001
+        log.warning("bring_to_front %s failed: %s", title, e)
+
+
+def _hide(ward: Ward, titles: list[str]) -> None:
+    for t in titles:
+        ws = ward.tab(t)
+        if ws is not None and not ws.isSheetHidden:
+            try:
+                ws.hide()
+            except Exception as e:  # noqa: BLE001
+                log.warning("hide %s failed: %s", t, e)
+
+
+def tab_title_for(ward: Ward, m: Month) -> str | None:
+    from ..sheets.layout import tab_title
+
+    return tab_title(ward, m)
+
+
 def go_live(ward: Ward, today: date) -> list[str]:
     """Cron day 1: published → live for months whose first day ≤ today."""
     ctl = read_control(ward)
@@ -117,5 +148,8 @@ def go_live(ward: Ward, today: date) -> list[str]:
         m = Month.from_key(key)
         if ctl.get(f"status:{key}") == "published" and m.first_date() <= today:
             set_status(ward, m, "live")
+            t = tab_title_for(ward, m)
+            if t:
+                bring_to_front(ward, t)
             out.append(key)
     return out
