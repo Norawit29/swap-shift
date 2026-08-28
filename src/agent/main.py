@@ -98,6 +98,7 @@ def _handle(ev: dict, line: LineClient, llm: LLM, today: date | None) -> None:
 
         # 1) exact-match commands (before LLM)
         cmd = parse_command(text)
+        log.info("route: cmd=%s head=%s", cmd.name if cmd else None, is_head)
         if cmd:
             if cmd.name in HEAD_ONLY_CMDS:
                 if not is_head:
@@ -130,6 +131,7 @@ def _handle(ev: dict, line: LineClient, llm: LLM, today: date | None) -> None:
 
         # 4) classify
         c = llm.classify(text)
+        log.info("classify: intent=%s conf=%.2f", c.intent, c.confidence)
         if c.confidence < CONFIDENCE_MIN or c.intent in ("other", "command"):
             return  # silent; nothing stored
         if c.intent == "confirm_reply":
@@ -148,6 +150,7 @@ def _handle(ev: dict, line: LineClient, llm: LLM, today: date | None) -> None:
 
 
 def _send(line: LineClient, token: str | None, group_id: str, r: Reply) -> None:
+    log.info("reply: %s%s", r.text.splitlines()[0][:60], " [quick_reply]" if r.quick_reply_id else "")
     line.send(token, group_id, [r.text, *r.extra], r.quick_reply_id)
 
 

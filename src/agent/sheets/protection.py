@@ -8,26 +8,31 @@ from .client import Ward, service_account_email, with_retry
 log = logging.getLogger(__name__)
 
 
+def _sheet_level_protections(ward: Ward, sheet_id: int) -> list[int]:
+    meta = with_retry(lambda: ward.ss.fetch_sheet_metadata({"fields": "sheets(properties.sheetId,protectedRanges)"}))
+    for sh in meta.get("sheets", []):
+        if sh.get("properties", {}).get("sheetId") != sheet_id:
+            continue
+        return [p["protectedRangeId"] for p in sh.get("protectedRanges", [])
+                if set(p.get("range", {}).keys()) <= {"sheetId"}]
+    return []
+
+
 def protect_tab(ward: Ward, title: str) -> None:
     ws = ward.tab(title)
     if ws is None:
         raise KeyError(title)
-    for p in with_retry(lambda: ws.list_protected_ranges()):  # replace existing sheet-level protection
-        pid = p.get("protectedRangeId")
-        if pid and "range" in p and set(p["range"].keys()) <= {"sheetId"}:
-            with_retry(lambda pid=pid: ws.delete_protected_range(pid))
-    body = {"requests": [{"addProtectedRange": {"protectedRange": {
+    reqs = [{"deleteProtectedRange": {"protectedRangeId": pid}} for pid in _sheet_level_protections(ward, ws.id)]
+    reqs.append({"addProtectedRange": {"protectedRange": {
         "range": {"sheetId": ws.id},
         "description": "managed by line-swap-agent — edit via bot only",
         "warningOnly": False,
         "editors": {"users": [service_account_email()], "domainUsersCanEdit": False},
-    }}}]}
-    with_retry(lambda: ward.ss.batch_update(body))
+    }}})
+    with_retry(lambda: ward.ss.batch_update({"requests": reqs}))
     log.info("protected tab %s", title)
 
 
 def is_protected(ward: Ward, title: str) -> bool:
     ws = ward.tab(title)
-    if ws is None:
-        return False
-    return any("range" in p and set(p["range"].keys()) <= {"sheetId"} for p in with_retry(ws.list_protected_ranges))
+    return bool(ws) and bool(_sheet_level_protections(ward, ws.id))
