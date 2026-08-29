@@ -15,7 +15,8 @@ _DAY_RE = re.compile(r"^\s*(\d{1,2})(?!\d)")
 _TM_RE = re.compile(r"\s*TM\s*$", re.I)
 _MONTH_ALIASES = {"กรกฎาคม": ("กรกฏาคม",)}
 _ABBR = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
-FIRST_COL, LAST_COL = 3, 9  # C..I (1-based)
+FIRST_COL, LAST_COL = 3, 9  # default when labels sit in column B (C..I = จันทร์..อาทิตย์), 1-based
+MAX_LABEL_COL = 4  # labels are looked for in columns A–D
 
 
 def base_name(v: str) -> str:
@@ -43,6 +44,11 @@ class Slot:
 class GridRoster(RosterBase):
     month: Month
     slots: list[Slot] = field(default_factory=list)
+    label_col: int = FIRST_COL - 1  # 1-based column holding the row labels
+
+    @property
+    def day_cols(self) -> tuple[int, int]:
+        return self.label_col + 1, self.label_col + 7
 
     @property
     def names(self) -> dict[str, str]:  # type: ignore[override]
@@ -96,16 +102,29 @@ class GridRoster(RosterBase):
         return writes
 
 
+def detect_label_col(values: list[list[str]], codes: ShiftCodes) -> int:
+    """Which 1-based column holds 'วันที่' / shift labels? (sheets differ by one column)"""
+    wanted = {norm_label(codes.grid_date_label)} | set(codes.grid_rows or {})
+    votes: dict[int, int] = {}
+    for row in values[:80]:
+        for c in range(1, min(MAX_LABEL_COL, len(row)) + 1):
+            if norm_label(row[c - 1]) in wanted:
+                votes[c] = votes.get(c, 0) + 1
+    return max(votes, key=lambda c: (votes[c], -c)) if votes else FIRST_COL - 1
+
+
 def parse_grid(values: list[list[str]], month: Month, codes: ShiftCodes | None = None) -> GridRoster:
     codes = codes or load_shifts()
     date_label = norm_label(codes.grid_date_label)
+    label_col = detect_label_col(values, codes)
+    first_col, last_col = label_col + 1, label_col + 7
     slots: list[Slot] = []
     day_by_col: dict[int, int] = {}
     for r, row in enumerate(values, start=1):
-        label = norm_label(row[1] if len(row) > 1 else "")
+        label = norm_label(row[label_col - 1] if len(row) >= label_col else "")
         if label == date_label:
             day_by_col = {}
-            for c in range(FIRST_COL, LAST_COL + 1):
+            for c in range(first_col, last_col + 1):
                 v = row[c - 1] if len(row) >= c else ""
                 m = _DAY_RE.match(str(v))
                 if m and month.contains(int(m.group(1))):
@@ -118,8 +137,8 @@ def parse_grid(values: list[list[str]], month: Month, codes: ShiftCodes | None =
             raw = (row[c - 1] if len(row) >= c else "").strip()
             slots.append(Slot(r, c, day, code, raw))
     if not slots:
-        raise ValueError("no shift rows found — check grid_rows labels in config/shifts.yaml")
-    return GridRoster(month, slots)
+        raise ValueError("ไม่พบแถวเวรในแท็บนี้ (ตรวจหัวข้อ วันที่ / 8.00 - 16.00 / On floor 1-2 / 16.00 - 24.00 / 0.00 - 8.00)")
+    return GridRoster(month, slots, label_col)
 
 
 def month_tab_title(titles: list[str], month: Month) -> str | None:

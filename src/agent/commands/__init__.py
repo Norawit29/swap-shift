@@ -54,7 +54,10 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
     codes = load_shifts()
     ctl = read_control(ward)
     status = month_status(ctl, m)
-    loaded = load_roster(ward, m, ctl)
+    try:
+        loaded = load_roster(ward, m, ctl)
+    except ValueError as e:
+        return f"อ่านแท็บของเดือน {m.label} ไม่ได้: {e}"
     if cmd.name in ("ตรวจตาราง", "ประกาศตาราง") and loaded is None:
         return f"ไม่พบแท็บของเดือน {m.label}"
     if cmd.name == "ตรวจตาราง":

@@ -143,3 +143,22 @@ def test_tab_title_prefers_pinned_over_rightmost(monkeypatch):
     assert L.tab_title(ward, M, {"tab:2569-09": "กันยายน2569 (แลก5)"}) == "กันยายน2569 (แลก5)"
     # pin pointing at a deleted tab falls back
     assert L.tab_title(ward, M, {"tab:2569-09": "หายไป"}) == "กันยายน2569 (แลก4)"
+
+
+def test_label_column_autodetected(grid):
+    import csv
+
+    from agent.sheets.grid import detect_label_col
+    from agent.shifts import load_shifts
+
+    codes = load_shifts()
+    with open(FIX, encoding="utf-8", newline="") as f:
+        rows = [r for r in csv.reader(f)]
+    assert detect_label_col(rows, codes) == 2 and grid.label_col == 2 and grid.day_cols == (3, 9)
+    # same sheet shifted one column left (labels in A) — as in the ตุลาคม2569 tab
+    shifted = [r[1:] for r in rows]
+    g2 = parse_grid(shifted, M)
+    assert g2.label_col == 1 and g2.day_cols == (2, 8)
+    assert g2.cell("จุฑามาศ", 10) == grid.cell("จุฑามาศ", 10) == "ช"
+    w = g2.plan_moves([Move("จุฑามาศ", "ธนดล", 10, "ช")])
+    assert (w[0].row, w[0].col) == (11, 5)  # one column left of the original (11, 6)

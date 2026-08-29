@@ -6,7 +6,7 @@ from collections import Counter
 
 from ..shifts import load_shifts
 from .client import Ward, with_retry
-from .grid import FIRST_COL, LAST_COL, base_name
+from .grid import MAX_LABEL_COL, base_name
 from .writer import CellWrite
 
 log = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def read_cell_colors(ward: Ward, title: str) -> dict[tuple[int, int], tuple[str,
             for i, row in enumerate(block.get("rowData", [])):
                 for j, cell in enumerate(row.get("values", [])):
                     r, c = r0 + i + 1, c0 + j + 1
-                    if FIRST_COL <= c <= LAST_COL:
+                    if c > MAX_LABEL_COL - 2:  # skip the leading label columns; layout may be shifted
                         bg = cell.get("effectiveFormat", {}).get("backgroundColor")
                         out[(r, c)] = (cell.get("formattedValue", "") or "", _rgb(bg))
     return out

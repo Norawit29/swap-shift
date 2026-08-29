@@ -58,17 +58,31 @@ class ChangeService:
         staff = read_staff(self.ward)
         if not staff:  # grid layout without _staff: identity = name in cell
             today_m = Month.from_date(date.today())
-            loaded = load_roster(self.ward, current_month(ctl, today_m), ctl)
+            try:
+                loaded = load_roster(self.ward, current_month(ctl, today_m), ctl)
+            except ValueError as e:
+                log.warning("staff fallback: %s", e)
+                loaded = None
             if loaded:
                 staff = [Staff(n, n, (n,)) for n in loaded[1].names]
         return ctl, staff
 
     def _roster(self, month: Month) -> RosterBase | None:
-        loaded = load_roster(self.ward, month, getattr(self, "_ctl", None))
+        self._roster_error = ""
+        try:
+            loaded = load_roster(self.ward, month, getattr(self, "_ctl", None))
+        except ValueError as e:  # tab exists but cannot be parsed
+            log.warning("roster parse failed for %s: %s", month.key, e)
+            self._roster_error = str(e)
+            return None
         if loaded is None:
             return None
         self._tab = loaded[0]
         return loaded[1]
+
+    def _no_roster_reply(self, m: Month) -> Reply:
+        err = getattr(self, "_roster_error", "")
+        return Reply(T.reject_plain(f"อ่านตารางเดือน {m.label} ไม่ได้: {err}" if err else f"ไม่พบตารางเดือน {m.label}"))
 
     def open_request(self, user_id: str) -> ChangeRequest | None:
         q = select(ChangeRequest).where(ChangeRequest.reporter_line_id == user_id,
@@ -162,7 +176,7 @@ class ChangeService:
         roster = self._roster(a_m)
         if roster is None:
             transition(cr, "REJECTED")
-            return Reply(T.reject_plain(f"ไม่พบตารางเดือน {a_m.label}"))
+            return self._no_roster_reply(a_m)
         res = check_swap(roster, self.codes, a, cr.a_day, _shift_arg(cr.a_shift, self.codes), b, cr.b_day,
                          _shift_arg(cr.b_shift, self.codes), month_status(ctl, a_m))
         if res.ok:  # record the concrete codes (resolves "all")
@@ -222,7 +236,7 @@ class ChangeService:
         roster = self._roster(m)
         if roster is None:
             transition(cr, "REJECTED")
-            return Reply(T.reject_plain(f"ไม่พบตารางเดือน {m.label}"))
+            return self._no_roster_reply(m)
         check = check_edit(roster, self.codes, target, ex.day, new_code, month_status(ctl, m))  # type: ignore[arg-type]
         cr.old_value = roster.cell(target.staff_id, ex.day) if roster.has(target.staff_id) else None  # type: ignore[arg-type]
         return self._finish_check(cr, check, msg)
@@ -235,7 +249,7 @@ class ChangeService:
         m = _month_or(q.month, current_month(ctl, today_m))
         roster = self._roster(m)
         if roster is None:
-            return Reply(f"ยังไม่มีตารางเดือน {m.label} ค่ะ")
+            return self._no_roster_reply(m)
         person = None
         if q.name:
             r = resolve(q.name, staff)
