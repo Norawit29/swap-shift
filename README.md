@@ -65,7 +65,7 @@ touching the Sheet.
 | Command | Effect |
 |---|---|
 | `ตรวจตาราง 2569-10` | parse report: unknown codes / staff, empty rows |
-| `ประกาศตาราง 2569-10` | snapshot `_planned`, protect tab (service account sole editor), status=published, post link |
+| `ประกาศตาราง 2569-10` | snapshot `_planned`, protect tab (service account sole editor), pin the tab name in `_control`, status=published, post link. The tab moves to the front only on day 1 (go-live) — the month in effect always stays leftmost. |
 | `ปิดตาราง 2569-09` | status=closed, build `_diff`, reply per-person delta |
 | `สถานะ` / `ยกเลิก` | anyone: own pending change |
 | `ตาราง` / `ตารางเวร` / `ขอตารางเวร [เดือน]` | anyone: link to the month tab (default current month; `เดือนหน้า` ok) |

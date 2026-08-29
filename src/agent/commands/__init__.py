@@ -144,6 +144,27 @@ def tab_title_for(ward: Ward, m: Month, control: dict[str, str] | None = None) -
     return tab_title(ward, m, control)
 
 
+def current_display_month(ctl: dict[str, str]) -> Month | None:
+    """The month users should see first: the live month, else the latest published one."""
+    months = sorted(active_months(ctl))
+    live = [k for k in months if ctl.get(f"status:{k}") == "live"]
+    pub = [k for k in months if ctl.get(f"status:{k}") == "published"]
+    key = (live or pub or [None])[-1]
+    return Month.from_key(key) if key else None
+
+
+def ensure_front_tab(ward: Ward, ctl: dict[str, str] | None = None) -> str | None:
+    """Keep the current month's tab leftmost — that is what opening the spreadsheet link shows."""
+    ctl = ctl if ctl is not None else read_control(ward)
+    m = current_display_month(ctl)
+    if m is None:
+        return None
+    t = tab_title_for(ward, m, ctl)
+    if t:
+        bring_to_front(ward, t)
+    return t
+
+
 def go_live(ward: Ward, today: date) -> list[str]:
     """Cron day 1: published → live for months whose first day ≤ today."""
     ctl = read_control(ward)
@@ -152,8 +173,6 @@ def go_live(ward: Ward, today: date) -> list[str]:
         m = Month.from_key(key)
         if ctl.get(f"status:{key}") == "published" and m.first_date() <= today:
             set_status(ward, m, "live")
-            t = tab_title_for(ward, m, ctl)
-            if t:
-                bring_to_front(ward, t)
             out.append(key)
+    ensure_front_tab(ward)  # day 1: the new month takes the front; otherwise keeps the current one there
     return out

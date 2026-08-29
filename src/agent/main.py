@@ -10,7 +10,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 
 from .change.models import utcnow
 from .change.service import ChangeService, Incoming, Reply, expire_all
-from .commands import HEAD_ONLY_CMDS, go_live, parse_command, roster_link, run_admin
+from .commands import HEAD_ONLY_CMDS, ensure_front_tab, go_live, parse_command, roster_link, run_admin
 from .db import init_db, session
 from .line import templates as T
 from .line.client import LineClient
@@ -232,6 +232,10 @@ def cron_drift(token: str | None = Query(None)) -> dict:
                     items.append(f"{sid} วันที่ {fmt_day(m, d)} ({exp or '-'} → {act or '-'})")
             except KeyError as e:
                 log.warning("drift skip %s: %s", key, e)
+        try:
+            ensure_front_tab(ward, ctl)  # self-heal tab order (current month must stay leftmost)
+        except Exception:  # noqa: BLE001
+            log.warning("ensure_front_tab failed for %s", g)
         if items:
             found += len(items)
             log.warning("drift in %s: %s", g, items)

@@ -63,3 +63,15 @@ def test_roster_link_tag():
     get_settings.cache_clear()
     out = roster_link(ward, "ส.ค.", today=date(2026, 8, 27))
     assert "(ยังไม่ประกาศ)" in out and out.endswith("https://x/#gid=1")
+
+
+def test_current_display_month_prefers_live_then_latest_published():
+    from agent.commands import current_display_month
+
+    ctl = {"active_months": "2569-09,2569-10", "status:2569-09": "live", "status:2569-10": "published"}
+    assert current_display_month(ctl).key == "2569-09"          # mid-Sep: Oct published but Sep is live
+    ctl["status:2569-09"] = "closed"
+    ctl["status:2569-10"] = "live"
+    assert current_display_month(ctl).key == "2569-10"          # Oct 1: Oct goes live
+    assert current_display_month({"active_months": "2569-09", "status:2569-09": "published"}).key == "2569-09"
+    assert current_display_month({}) is None
