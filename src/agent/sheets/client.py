@@ -72,6 +72,13 @@ class Ward:
             raise KeyError(f"tab {title!r} not found")
         return with_retry(ws.get_all_values)
 
+    def tab_by_id(self, sheet_id: int) -> gspread.Worksheet | None:
+        """Sheet ids survive renames — the reliable way to point at a tab."""
+        try:
+            return with_retry(lambda: self.ss.get_worksheet_by_id(sheet_id))
+        except (gspread.exceptions.WorksheetNotFound, KeyError, ValueError):
+            return None
+
     def sheet_titles(self) -> list[str]:
         return [ws.title for ws in with_retry(self.ss.worksheets)]
 

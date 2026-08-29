@@ -4,14 +4,16 @@ from __future__ import annotations
 from ..thai_date import Month
 from .audit import read_audit
 from .client import Ward
-from .layout import layout, parse_values, tab_title
+from .control import read_control
+from .layout import layout, parse_values, planned_title, tab_title
 
 
 def _tabs(ward: Ward, month: Month) -> tuple[str, str]:
-    t = tab_title(ward, month)
-    if t is None:
+    ctl = read_control(ward)
+    t, p = tab_title(ward, month, ctl), planned_title(ward, month, ctl)
+    if t is None or p is None:
         raise KeyError(month.key)
-    return t, f"{t}_planned"
+    return t, p
 
 
 def expected_state(ward: Ward, month: Month) -> dict[tuple[str, int], str]:

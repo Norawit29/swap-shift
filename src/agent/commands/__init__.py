@@ -78,7 +78,9 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
         protect_tab(ward, title)
         protect_tab(ward, planned)
         _hide(ward, [planned])  # tab is moved to the front only on go-live (day 1), not at publish
-        set_control(ward, {f"tab:{m.key}": title})  # pin: tab order changes later, resolution must not
+        # pin by sheet id: tabs get renamed and reordered, ids do not
+        set_control(ward, {f"tab:{m.key}": title, f"gid:{m.key}": str(ward.tab(title).id),
+                           f"planned_gid:{m.key}": str(ward.tab(planned).id)})
         set_status(ward, m, "published", by=by_display)
         return T.published(m, ward.tab_url(title))
     if cmd.name == "ปิดตาราง":

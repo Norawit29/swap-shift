@@ -15,18 +15,37 @@ def layout() -> str:
 
 
 def tab_title(ward: Ward, month: Month, control: dict[str, str] | None = None) -> str | None:
-    """Grid layout: the tab pinned in _control at publish time wins; otherwise the rightmost matching tab.
-
-    The pin matters because tabs get reordered (go-live moves the live month to the front), which would
-    otherwise make the "rightmost" heuristic pick an old revision tab.
-    """
+    """Grid layout: resolve by the sheet id pinned at publish time (survives renames AND reordering),
+    then by the pinned title, then by the rightmost matching tab."""
     if layout() != "grid":
         return month.key if ward.tab(month.key) is not None else None
     ctl = control if control is not None else read_control(ward)
+    ws = _by_gid(ward, ctl.get(f"gid:{month.key}"))
+    if ws is not None:
+        return ws.title
     pinned = ctl.get(f"tab:{month.key}", "").strip()
     if pinned and ward.tab(pinned) is not None:
         return pinned
     return month_tab_title(ward.sheet_titles(), month)
+
+
+def planned_title(ward: Ward, month: Month, control: dict[str, str] | None = None) -> str | None:
+    """Title of the frozen copy: by pinned id, else '<live tab>_planned'."""
+    ctl = control if control is not None else read_control(ward)
+    ws = _by_gid(ward, ctl.get(f"planned_gid:{month.key}"))
+    if ws is not None:
+        return ws.title
+    live = tab_title(ward, month, ctl)
+    return f"{live}_planned" if live else None
+
+
+def _by_gid(ward: Ward, gid: str | int | None):
+    if gid in (None, ""):
+        return None
+    try:
+        return ward.tab_by_id(int(gid))
+    except (TypeError, ValueError):
+        return None
 
 
 def parse_values(values: list[list[str]], month: Month) -> RosterBase:
