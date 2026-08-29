@@ -16,6 +16,7 @@ from .name_resolver import Staff
 class CheckResult:
     ok: bool
     reason: str | None = None
+    code: str = ""  # short machine reason (safe to log — no names)
     warning: str | None = None
     writes: list[CellWrite] = field(default_factory=list)
     lines: list[str] = field(default_factory=list)
@@ -23,7 +24,7 @@ class CheckResult:
     b_codes: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
-        return {"ok": self.ok, "reason": self.reason, "warning": self.warning,
+        return {"ok": self.ok, "reason": self.reason, "code": self.code, "warning": self.warning,
                 "writes": [(w.staff_id, w.day, w.before, w.after) for w in self.writes]}
 
 
@@ -40,65 +41,73 @@ def check_swap(roster: RosterBase, codes: ShiftCodes, a: Staff, a_day: int, a_sh
     """a_shift / b_shift: a code, a list of codes, or "all" (= every code that person holds on that day)."""
     m: Month = roster.month
     if (r := check_month(status)):
-        return CheckResult(False, r)
+        return CheckResult(False, r, code="month_not_open")
     if a.staff_id == b.staff_id:
-        return CheckResult(False, "ผู้แลกทั้งสองเป็นคนเดียวกัน")
+        return CheckResult(False, "ผู้แลกทั้งสองเป็นคนเดียวกัน", code="same_person")
     give = b_day is None or b_shift is None
     for who, d in ((a, a_day), *(() if give else ((b, b_day),))):
         if not m.contains(d):
-            return CheckResult(False, f"เดือน {m.abbr} ไม่มีวันที่ {d}")
+            return CheckResult(False, f"เดือน {m.abbr} ไม่มีวันที่ {d}", code="bad_day")
         if not roster.has(who.staff_id):
-            return CheckResult(False, f"{who.display} ไม่อยู่ในตารางเดือน {m.abbr}")
+            return CheckResult(False, f"{who.display} ไม่อยู่ในตารางเดือน {m.abbr}", code="not_in_roster")
     if not roster.has(b.staff_id):
-        return CheckResult(False, f"{b.display} ไม่อยู่ในตารางเดือน {m.abbr}")
+        return CheckResult(False, f"{b.display} ไม่อยู่ในตารางเดือน {m.abbr}", code="not_in_roster")
     try:
         a_cell = codes.parse_cell(roster.cell(a.staff_id, a_day))
         b_cell = codes.parse_cell(roster.cell(b.staff_id, b_day)) if not give else []
         a_recv = codes.parse_cell(roster.cell(a.staff_id, b_day)) if not give else []
         b_recv = codes.parse_cell(roster.cell(b.staff_id, a_day))
     except CellParseError as e:
-        return CheckResult(False, f"ตารางมีรหัสเวรที่อ่านไม่ได้ ({e}) แจ้งหัวหน้าเวร")
+        return CheckResult(False, f"ตารางมีรหัสเวรที่อ่านไม่ได้ ({e}) แจ้งหัวหน้าเวร", code="cell_parse")
 
     a_codes = _expand(a_shift, a_cell)
     b_codes = _expand(b_shift, b_cell) if not give else []
     if not a_codes:
-        return CheckResult(False, f"{a.display} วันที่ {fmt_day(m, a_day)} ตารางระบุ {codes.off_label} — ไม่มีเวรให้แลก")
+        return CheckResult(False, f"{a.display} วันที่ {fmt_day(m, a_day)} ตารางระบุ {codes.off_label} — ไม่มีเวรให้แลก",
+                           code="no_shift_that_day")
     if not give and not b_codes:
-        return CheckResult(False, f"{b.display} วันที่ {fmt_day(m, b_day)} ตารางระบุ {codes.off_label} — ไม่มีเวรให้แลก")
+        return CheckResult(False, f"{b.display} วันที่ {fmt_day(m, b_day)} ตารางระบุ {codes.off_label} — ไม่มีเวรให้แลก",
+                           code="no_shift_that_day")
 
     # conference: exchange only, and only against conference on the other side
     conf = "conference"
     if conf in a_codes or conf in b_codes:
         if give:
-            return CheckResult(False, f"{codes.label(conf)} ยกให้ไม่ได้ ต้องแลกกับ {codes.label(conf)} ของอีกฝ่ายเท่านั้น")
+            return CheckResult(False, f"{codes.label(conf)} ยกให้ไม่ได้ ต้องแลกกับ {codes.label(conf)} ของอีกฝ่ายเท่านั้น",
+                               code="conference_give")
         if (conf in a_codes) != (conf in b_codes):
             return CheckResult(False, f"{codes.label(conf)} แลกได้กับ {codes.label(conf)} เท่านั้น "
-                                      f"(แจ้งมา: {_labels(a_codes, codes)} ↔ {_labels(b_codes, codes)})")
+                                      f"(แจ้งมา: {_labels(a_codes, codes)} ↔ {_labels(b_codes, codes)})",
+                               code="conference_pair")
 
     for c in a_codes:
         if c not in a_cell:
             return CheckResult(False, f"{a.display} วันที่ {fmt_day(m, a_day)} ตารางระบุ "
-                                      f"{_cell_desc(roster.cell(a.staff_id, a_day), codes)} ไม่ใช่ \"{c}\"")
+                                      f"{_cell_desc(roster.cell(a.staff_id, a_day), codes)} ไม่ใช่ \"{c}\"",
+                               code="not_on_shift")
     for c in b_codes:
         if c not in b_cell:
             return CheckResult(False, f"{b.display} วันที่ {fmt_day(m, b_day)} ตารางระบุ "
-                                      f"{_cell_desc(roster.cell(b.staff_id, b_day), codes)} ไม่ใช่ \"{c}\"")
+                                      f"{_cell_desc(roster.cell(b.staff_id, b_day), codes)} ไม่ใช่ \"{c}\"",
+                               code="not_on_shift")
     same_day = (not give) and a_day == b_day
     for c in a_codes:  # B receives c on a_day
         already = c in b_recv and not (same_day and c in b_codes)
         if already:
-            return CheckResult(False, f"{b.display} มีเวร{codes.label(c)}วันที่ {fmt_day(m, a_day)} อยู่แล้ว")
+            return CheckResult(False, f"{b.display} มีเวร{codes.label(c)}วันที่ {fmt_day(m, a_day)} อยู่แล้ว",
+                               code="duplicate_code")
     for c in b_codes:  # A receives c on b_day
         already = c in a_recv and not (same_day and c in a_codes)
         if already:
-            return CheckResult(False, f"{a.display} มีเวร{codes.label(c)}วันที่ {fmt_day(m, b_day)} อยู่แล้ว")
+            return CheckResult(False, f"{a.display} มีเวร{codes.label(c)}วันที่ {fmt_day(m, b_day)} อยู่แล้ว",
+                               code="duplicate_code")
 
     moves = [Move(a.staff_id, b.staff_id, a_day, c) for c in a_codes]
     moves += [Move(b.staff_id, a.staff_id, b_day, c) for c in b_codes]  # type: ignore[arg-type]
     try:
         writes = roster.plan_moves(moves)
     except PlanError as e:
-        return CheckResult(False, str(e))
+        return CheckResult(False, str(e), code="no_slot")
     lines = T.swap_lines(m, a.display, a_day, a_codes, b.display, b_day, b_codes or None, codes)
     return CheckResult(True, writes=writes, lines=lines, a_codes=a_codes, b_codes=b_codes)
 
@@ -119,24 +128,25 @@ def check_edit(roster: RosterBase, codes: ShiftCodes, target: Staff, day: int, n
                status: str, implied_old: str | None = None) -> CheckResult:
     m = roster.month
     if (r := check_month(status)):
-        return CheckResult(False, r)
+        return CheckResult(False, r, code="month_not_open")
     if not m.contains(day):
-        return CheckResult(False, f"เดือน {m.abbr} ไม่มีวันที่ {day}")
+        return CheckResult(False, f"เดือน {m.abbr} ไม่มีวันที่ {day}", code="bad_day")
     if not roster.has(target.staff_id):
-        return CheckResult(False, f"{target.display} ไม่อยู่ในตารางเดือน {m.abbr}")
+        return CheckResult(False, f"{target.display} ไม่อยู่ในตารางเดือน {m.abbr}", code="not_in_roster")
     try:
         new_codes = codes.parse_cell(new_value)
     except CellParseError:
-        return CheckResult(False, f"รหัสเวร \"{new_value}\" ไม่ถูกต้อง")
+        return CheckResult(False, f"รหัสเวร \"{new_value}\" ไม่ถูกต้อง", code="bad_code")
     before = roster.cell(target.staff_id, day)
     warn = None
     if implied_old is not None and implied_old != before:
         warn = f"ตารางปัจจุบันระบุ {_cell_desc(before, codes)} ไม่ใช่ {_cell_desc(implied_old, codes)}"
     if before == new_value:
-        return CheckResult(False, f"{target.display} วันที่ {fmt_day(m, day)} เป็น {_cell_desc(before, codes)} อยู่แล้ว")
+        return CheckResult(False, f"{target.display} วันที่ {fmt_day(m, day)} เป็น {_cell_desc(before, codes)} อยู่แล้ว",
+                           code="unchanged")
     try:
         writes = roster.plan_set(target.staff_id, day, new_codes)
     except PlanError as e:
-        return CheckResult(False, str(e))
+        return CheckResult(False, str(e), code="no_slot")
     return CheckResult(True, warning=warn, writes=writes,
                        lines=[T.edit_line(m, day, target.display, before, new_value, codes)])

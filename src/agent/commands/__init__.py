@@ -73,7 +73,8 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
         planned = f"{title}_planned"
         if ward.tab(planned) is None:
             src = ward.tab(title)
-            ward.ss.duplicate_sheet(src.id, new_sheet_name=planned)
+            ward.ss.duplicate_sheet(src.id, new_sheet_name=planned,
+                                    insert_sheet_index=len(ward.ss.worksheets()))  # keep it out of the front
         protect_tab(ward, title)
         protect_tab(ward, planned)
         _hide(ward, [planned])  # tab is moved to the front only on go-live (day 1), not at publish

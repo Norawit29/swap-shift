@@ -290,6 +290,9 @@ class ChangeService:
         cr.check_result = res.as_dict()
         if not res.ok:
             transition(cr, "REJECTED")
+            log.info("reject %s: %s", cr.id, res.code or "other")  # code only — no names in logs
+            if res.code == "month_not_open":
+                return Reply(T.reject_plain(f"{res.reason} — ให้หัวหน้าเวรพิมพ์ \"ประกาศตาราง {cr.month}\" ก่อนค่ะ"))
             return Reply(T.reject(res.reason or ""))
         cr.snapshot = {"writes": [[w.staff_id, w.day, w.row, w.col, w.before, w.after, w.code] for w in res.writes],
                        "lines": res.lines, "tab": getattr(self, "_tab", cr.month)}
