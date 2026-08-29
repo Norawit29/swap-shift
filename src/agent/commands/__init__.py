@@ -147,19 +147,21 @@ def tab_title_for(ward: Ward, m: Month, control: dict[str, str] | None = None) -
     return tab_title(ward, m, control)
 
 
-def current_display_month(ctl: dict[str, str]) -> Month | None:
-    """The month users should see first: the live month, else the latest published one."""
-    months = sorted(active_months(ctl))
-    live = [k for k in months if ctl.get(f"status:{k}") == "live"]
-    pub = [k for k in months if ctl.get(f"status:{k}") == "published"]
-    key = (live or pub or [None])[-1]
-    return Month.from_key(key) if key else None
+def current_display_month(ctl: dict[str, str], today: date | None = None) -> Month | None:
+    """The month users should see first: the latest active month that has already started,
+    else the nearest upcoming one. (A month published in advance must NOT jump the queue.)"""
+    today = today or date.today()
+    cands = [k for k in sorted(active_months(ctl)) if ctl.get(f"status:{k}") in ("live", "published")]
+    if not cands:
+        return None
+    started = [k for k in cands if Month.from_key(k).first_date() <= today]
+    return Month.from_key(started[-1] if started else cands[0])
 
 
 def ensure_front_tab(ward: Ward, ctl: dict[str, str] | None = None) -> str | None:
     """Keep the current month's tab leftmost — that is what opening the spreadsheet link shows."""
     ctl = ctl if ctl is not None else read_control(ward)
-    m = current_display_month(ctl)
+    m = current_display_month(ctl)  # date-aware: a month published in advance stays behind
     if m is None:
         return None
     t = tab_title_for(ward, m, ctl)

@@ -65,16 +65,18 @@ def test_roster_link_tag():
     assert "(ยังไม่ประกาศ)" in out and out.endswith("https://x/#gid=1")
 
 
-def test_current_display_month_prefers_live_then_latest_published():
+def test_current_display_month_is_date_aware():
     from agent.commands import current_display_month
 
-    ctl = {"active_months": "2569-09,2569-10", "status:2569-09": "live", "status:2569-10": "published"}
-    assert current_display_month(ctl).key == "2569-09"          # mid-Sep: Oct published but Sep is live
-    ctl["status:2569-09"] = "closed"
-    ctl["status:2569-10"] = "live"
-    assert current_display_month(ctl).key == "2569-10"          # Oct 1: Oct goes live
-    assert current_display_month({"active_months": "2569-09", "status:2569-09": "published"}).key == "2569-09"
-    assert current_display_month({}) is None
+    both = {"active_months": "2569-09,2569-10", "status:2569-09": "published", "status:2569-10": "published"}
+    # late Aug: neither has started → the nearest upcoming month (Sep), NOT the newest published (Oct)
+    assert current_display_month(both, date(2026, 8, 29)).key == "2569-09"
+    # mid-Sep with Oct already published: Sep is the month in effect
+    assert current_display_month(both, date(2026, 9, 15)).key == "2569-09"
+    # Oct 1: Oct takes the front
+    assert current_display_month(both, date(2026, 10, 1)).key == "2569-10"
+    assert current_display_month({"active_months": "2569-09", "status:2569-09": "live"}, date(2026, 9, 3)).key == "2569-09"
+    assert current_display_month({}, date(2026, 9, 3)) is None
 
 
 def test_slash_month_needs_a_year_not_a_day_month_date():
