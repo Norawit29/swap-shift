@@ -1,11 +1,24 @@
 """Drift detector: expected = _planned + _audit replay; compare to live tab. Never auto-revert."""
 from __future__ import annotations
 
+from ..shifts import CellParseError, load_shifts
 from ..thai_date import Month
 from .audit import read_audit
 from .client import Ward
 from .control import read_control
 from .layout import layout, parse_values, planned_title, tab_title
+
+
+def canon(cell: str) -> str:
+    """Order-insensitive form of a cell: in grid layout the string is assembled from slots,
+    so 'ชดบ' and 'ชบด' are the same roster state."""
+    codes = load_shifts()
+    try:
+        lst = codes.parse_cell(cell)
+    except CellParseError:
+        return cell
+    order = {c: i for i, c in enumerate(codes.codes)}
+    return codes.serialize(sorted(lst, key=lambda c: order.get(c, 99)))
 
 
 def _tabs(ward: Ward, month: Month) -> tuple[str, str]:
@@ -56,7 +69,8 @@ def replay_grid(planned: dict[tuple[str, int], str], audit: list[dict[str, str]]
             lst = state.setdefault((to, day), [])
             if code not in lst:
                 lst.append(code)
-    return {k: codes.serialize(v) for k, v in state.items() if v}
+    order = {c: i for i, c in enumerate(codes.codes)}
+    return {k: codes.serialize(sorted(v, key=lambda c: order.get(c, 99))) for k, v in state.items() if v}
 
 
 def detect_drift(ward: Ward, month: Month) -> list[tuple[str, int, str, str]]:
@@ -67,7 +81,7 @@ def detect_drift(ward: Ward, month: Month) -> list[tuple[str, int, str, str]]:
     out = []
     for (sid, d), exp in expected.items():
         act = actual_map.get((sid, d), "")
-        if act != exp:
+        if canon(act) != canon(exp):
             out.append((sid, d, exp, act))
     for (sid, d), v in actual_map.items():
         if (sid, d) not in expected and v:
@@ -87,7 +101,7 @@ def build_diff(ward: Ward, month: Month) -> tuple[int, dict[str, int]]:
     per: dict[str, int] = {}
     for (sid, d) in sorted(set(pmap) | set(actual)):
         p, a = pmap.get((sid, d), ""), actual.get((sid, d), "")
-        if p != a:
+        if canon(p) != canon(a):
             name = planned.names.get(sid, sid)
             rows.append([sid, name, str(d), p, a])
             per[name] = per.get(name, 0) + 1
