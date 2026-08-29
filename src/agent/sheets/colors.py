@@ -20,7 +20,13 @@ def _rgb(c: dict | None) -> Color:
 
 
 def read_cell_colors(ward: Ward, title: str) -> dict[tuple[int, int], tuple[str, Color]]:
-    """→ {(row, col): (raw value, rgb)} for the day columns of the whole tab (one API call)."""
+    """→ {(row, col): (raw value, rgb)} for the day columns of the whole tab (one API call, cached)."""
+    from ..settings import get_settings
+
+    return ward.cached(f"colors:{title}", get_settings().cache_ttl_static, lambda: _read_cell_colors(ward, title))
+
+
+def _read_cell_colors(ward: Ward, title: str) -> dict[tuple[int, int], tuple[str, Color]]:
     meta = with_retry(lambda: ward.ss.fetch_sheet_metadata({
         "includeGridData": True, "ranges": [f"'{title}'"],
         "fields": "sheets.data(startRow,startColumn,rowData.values(formattedValue,effectiveFormat.backgroundColor))",

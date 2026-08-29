@@ -43,12 +43,54 @@ def with_retry(fn: Callable[[], T], attempts: int = 4) -> T:
     raise RuntimeError("unreachable")
 
 
+class TTLCache:
+    """Tiny in-process cache — the Sheets API allows only 60 reads/min/user."""
+
+    def __init__(self) -> None:
+        self._d: dict[str, tuple[float, object]] = {}
+
+    def get(self, key: str, ttl: float):
+        if ttl <= 0:
+            return None
+        hit = self._d.get(key)
+        if hit and (time.monotonic() - hit[0]) < ttl:
+            return hit[1]
+        return None
+
+    def put(self, key: str, value):
+        self._d[key] = (time.monotonic(), value)
+        return value
+
+    def drop(self, *prefixes: str) -> None:
+        if not prefixes:
+            self._d.clear()
+            return
+        for k in [k for k in self._d if k.startswith(prefixes)]:
+            self._d.pop(k, None)
+
+
 class Ward:
-    """One spreadsheet per ward."""
+    """One spreadsheet per ward. Reads go through a short TTL cache; writers must call invalidate()."""
 
     def __init__(self, spreadsheet_id: str):
         self.id = spreadsheet_id
         self._ss: gspread.Spreadsheet | None = None
+        self._cache = TTLCache()
+
+    # ── cache plumbing ────────────────────────────────────────
+    def invalidate(self, *titles: str) -> None:
+        """After a write: drop cached values (and metadata, since ids/titles may have changed)."""
+        if titles:
+            for t in titles:
+                self._cache.drop(f"values:{t}", f"colors:{t}")
+        else:
+            self._cache.drop("values:", "colors:")
+        self._cache.drop("meta:")
+
+    def _meta(self, key: str, fn, ttl: float | None = None):
+        ttl = get_settings().cache_ttl if ttl is None else ttl
+        hit = self._cache.get(key, ttl)
+        return hit if hit is not None else self._cache.put(key, fn())
 
     @property
     def ss(self) -> gspread.Spreadsheet:
@@ -60,27 +102,38 @@ class Ward:
     def url(self) -> str:
         return f"https://docs.google.com/spreadsheets/d/{self.id}"
 
-    def tab(self, title: str) -> gspread.Worksheet | None:
-        try:
-            return with_retry(lambda: self.ss.worksheet(title))
-        except gspread.exceptions.WorksheetNotFound:
-            return None
+    def worksheets(self) -> list[gspread.Worksheet]:
+        return self._meta("meta:all", lambda: with_retry(self.ss.worksheets))
 
-    def values(self, title: str) -> list[list[str]]:
+    def tab(self, title: str) -> gspread.Worksheet | None:
+        for ws in self.worksheets():
+            if ws.title == title:
+                return ws
+        return None
+
+    def values(self, title: str, ttl: float | None = None) -> list[list[str]]:
         ws = self.tab(title)
         if ws is None:
             raise KeyError(f"tab {title!r} not found")
-        return with_retry(ws.get_all_values)
+        ttl = get_settings().cache_ttl if ttl is None else ttl
+        key = f"values:{title}"
+        hit = self._cache.get(key, ttl)
+        return hit if hit is not None else self._cache.put(key, with_retry(ws.get_all_values))
+
+    def cached(self, key: str, ttl: float, fn):
+        """Generic cached read (used for cell colours)."""
+        hit = self._cache.get(key, ttl)
+        return hit if hit is not None else self._cache.put(key, fn())
 
     def tab_by_id(self, sheet_id: int) -> gspread.Worksheet | None:
         """Sheet ids survive renames — the reliable way to point at a tab."""
-        try:
-            return with_retry(lambda: self.ss.get_worksheet_by_id(sheet_id))
-        except (gspread.exceptions.WorksheetNotFound, KeyError, ValueError):
-            return None
+        for ws in self.worksheets():
+            if ws.id == sheet_id:
+                return ws
+        return None
 
     def sheet_titles(self) -> list[str]:
-        return [ws.title for ws in with_retry(self.ss.worksheets)]
+        return [ws.title for ws in self.worksheets()]
 
     def tab_url(self, title: str) -> str:
         ws = self.tab(title)

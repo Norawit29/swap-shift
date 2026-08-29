@@ -113,7 +113,8 @@ def parse_month(text: str, *, default_year_be: int | None = None, today: date | 
                 continue
         if m.group("slash"):
             mo, y = int(m.group(3)), int(m.group(4))
-            if 1 <= mo <= 12:
+            # month/year only — "5/10" is a day/month date, not May 2510
+            if 1 <= mo <= 12 and (y >= 1900 or 50 <= y <= 99):
                 return Month(_to_be(y), mo)
             continue
         if m.group("name"):

@@ -18,7 +18,9 @@ def _tabs(ward: Ward, month: Month) -> tuple[str, str]:
 
 def expected_state(ward: Ward, month: Month) -> dict[tuple[str, int], str]:
     live, planned_t = _tabs(ward, month)
-    planned = parse_values(ward.values(planned_t), month)
+    from ..settings import get_settings
+
+    planned = parse_values(ward.values(planned_t, ttl=get_settings().cache_ttl_static), month)
     audit = read_audit(ward, month.key)
     if layout() == "grid":
         return replay_grid(planned.cells_map(), audit)
@@ -61,7 +63,7 @@ def detect_drift(ward: Ward, month: Month) -> list[tuple[str, int, str, str]]:
     """→ [(staff_id, day, expected, actual)]"""
     expected = expected_state(ward, month)
     live, _ = _tabs(ward, month)
-    actual_map = parse_values(ward.values(live), month).cells_map()
+    actual_map = parse_values(ward.values(live, ttl=0), month).cells_map()
     out = []
     for (sid, d), exp in expected.items():
         act = actual_map.get((sid, d), "")
@@ -76,7 +78,9 @@ def detect_drift(ward: Ward, month: Month) -> list[tuple[str, int, str, str]]:
 def build_diff(ward: Ward, month: Month) -> tuple[int, dict[str, int]]:
     """Create <month>_diff tab: rows where planned ≠ actual. Returns (n_rows, per-staff delta count)."""
     live, planned_t = _tabs(ward, month)
-    planned = parse_values(ward.values(planned_t), month)
+    from ..settings import get_settings
+
+    planned = parse_values(ward.values(planned_t, ttl=get_settings().cache_ttl_static), month)
     actual = parse_values(ward.values(live), month).cells_map()
     pmap = planned.cells_map()
     rows = [["staff_id", "name", "day", "planned", "actual"]]

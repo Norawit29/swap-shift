@@ -56,4 +56,6 @@ def load_roster(ward: Ward, month: Month, control: dict[str, str] | None = None)
     title = tab_title(ward, month, control)
     if title is None:
         return None
-    return title, parse_values(ward.values(title), month)
+    from ..settings import get_settings
+
+    return title, parse_values(ward.values(title, ttl=get_settings().cache_ttl_roster), month)

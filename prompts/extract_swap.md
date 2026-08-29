@@ -9,6 +9,7 @@ Rules:
 - swap_type "exchange": A gives a_shift on a_day to B, B gives b_shift on b_day to A.
 - swap_type "give": A gives a_shift on a_day to B; b_day/b_shift null.
 - a_name and b_name are REQUIRED. Never infer a name from the sender; if a party is unnamed, add "a_name"/"b_name" to missing and ask "แลกของใครกับใครคะ".
+- A date written with a slash is DAY/MONTH: "4/9" = day 4 of month 09, "5/10" = day 5 of month 10, "4/9/69" = day 4 month 09 year 2569 (BE). Never read it as month/day.
 - Resolve relative dates (พรุ่งนี้, วันศุกร์หน้า) to a day number and month "YYYY-MM" (BE year).
 - If a day is given without month: use the current active month; if that day already passed in the current month, use the next active month and add "month_ambiguous" to missing.
 - Keep names exactly as written (nicknames allowed). Strip prefixes พี่/น้อง/คุณ only in your head, not in output.

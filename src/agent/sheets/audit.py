@@ -33,10 +33,10 @@ def audit_rows(month: str, cells: list[tuple], change_id: str, reporter: str,
 
 
 def read_audit(ward: Ward, month: str) -> list[dict[str, str]]:
-    ws = ward.tab(TAB)
-    if ws is None:
+    try:
+        rows = ward.values(TAB)
+    except KeyError:
         return []
-    rows = with_retry(ws.get_all_values)
     out = []
     for r in rows[1:]:
         if len(r) >= 6 and r[1] == month:

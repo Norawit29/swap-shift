@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from ..change.name_resolver import Staff
-from .client import Ward, with_retry
+from .client import Ward
 
 TAB = "_staff"
 
 
 def read_staff(ward: Ward) -> list[Staff]:
-    ws = ward.tab(TAB)
-    if ws is None:
+    from ..settings import get_settings
+
+    try:
+        rows = ward.values(TAB, ttl=get_settings().cache_ttl_static)
+    except KeyError:
         return []
     out: list[Staff] = []
-    for row in with_retry(ws.get_all_values)[1:]:
+    for row in rows[1:]:
         if not row or not row[0].strip():
             continue
         sid = row[0].strip()

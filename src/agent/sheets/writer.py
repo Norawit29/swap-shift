@@ -54,6 +54,7 @@ def apply_writes(ward: Ward, tab: str, writes: list[CellWrite], change_id: str, 
             log.warning("colour read failed: %s", e)
     body = [{"range": rowcol_to_a1(w.row, w.col), "values": [[w.after]]} for w in writes]
     with_retry(lambda: ws.batch_update(body, value_input_option="RAW"))
+    ward.invalidate(tab)
     if colors is not None:
         from .colors import sync_colors
 
@@ -62,6 +63,7 @@ def apply_writes(ward: Ward, tab: str, writes: list[CellWrite], change_id: str, 
     rows = audit_rows(month_key, [(w.staff_id, w.day, w.before, w.after, w.code) for w in writes], change_id,
                       reporter, kind, raw_text)
     with_retry(lambda: audit.append_rows(rows, value_input_option="RAW"))
+    ward.invalidate(audit.title)
 
 
 def _grid_colors() -> bool:

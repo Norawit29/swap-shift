@@ -10,7 +10,7 @@ TODAY = date(2026, 8, 27)  # 2569
 @pytest.mark.parametrize("text,key", [
     ("2569-10", "2569-10"), ("10/2569", "2569-10"), ("ต.ค.", "2569-10"), ("ตุลาคม", "2569-10"),
     ("ต.ค. 69", "2569-10"), ("ตค", "2569-10"), ("ปิดตาราง ก.ย.", "2569-09"), ("2026-10", "2569-10"),
-    ("10/26", "2526-10"),  # 2-digit slash year → 25xx by convention
+    ("9/69", "2569-09"),  # 2-digit year is accepted only when it looks like a year (50–99)
 ])
 def test_parse_month(text, key):
     assert parse_month(text, today=TODAY).key == key
@@ -75,3 +75,10 @@ def test_current_display_month_prefers_live_then_latest_published():
     assert current_display_month(ctl).key == "2569-10"          # Oct 1: Oct goes live
     assert current_display_month({"active_months": "2569-09", "status:2569-09": "published"}).key == "2569-09"
     assert current_display_month({}) is None
+
+
+def test_slash_month_needs_a_year_not_a_day_month_date():
+    assert parse_month("10/2569", today=TODAY).key == "2569-10"
+    assert parse_month("10/69", today=TODAY).key == "2569-10"
+    assert parse_month("5/10", today=TODAY) is None   # day/month date, not May 2510
+    assert parse_month("4/9", today=TODAY) is None

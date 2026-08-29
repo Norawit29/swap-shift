@@ -12,11 +12,12 @@ WRITABLE = {"published", "live"}
 
 
 def read_control(ward: Ward) -> dict[str, str]:
-    ws = ward.tab(TAB)
-    if ws is None:
+    try:
+        rows = ward.values(TAB)
+    except KeyError:
         return {}
     out = {}
-    for row in with_retry(ws.get_all_values):
+    for row in rows:
         if len(row) >= 2 and row[0].strip():
             out[row[0].strip()] = row[1].strip()
     return out
@@ -40,6 +41,7 @@ def set_control(ward: Ward, updates: dict[str, str]) -> None:
         with_retry(lambda: ws.batch_update(batch))
     if append:
         with_retry(lambda: ws.append_rows(append))
+    ward.invalidate(TAB)
 
 
 def month_status(control: dict[str, str], month: Month) -> str:

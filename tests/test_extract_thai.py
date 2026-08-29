@@ -88,10 +88,16 @@ class FakeWard:
         row = self.rows[title][r - 1]
         return row[c - 1] if len(row) >= c else ""
 
-    def values(self, title):
+    def values(self, title, ttl=None):
         if title not in self.rows:
             raise KeyError(title)
         return self.rows[title]
+
+    def invalidate(self, *titles):
+        pass
+
+    def cached(self, key, ttl, fn):
+        return fn()
 
     def tab_url(self, title):
         return f"https://docs.google.com/spreadsheets/d/FAKE/edit#gid={abs(hash(title)) % 1000}"
