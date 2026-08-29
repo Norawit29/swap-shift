@@ -47,22 +47,24 @@ class Incoming:
 class ChangeService:
     def __init__(self, ward: Ward, llm: LLM, db: Session):
         self.ward, self.llm, self.db = ward, llm, db
+        self._ctl: dict[str, str] | None = None
         self.codes = load_shifts()
         self.settings = get_settings()
 
     # ── context ────────────────────────────────────────────────
     def _ctx(self):
         ctl = read_control(self.ward)
+        self._ctl = ctl
         staff = read_staff(self.ward)
         if not staff:  # grid layout without _staff: identity = name in cell
             today_m = Month.from_date(date.today())
-            loaded = load_roster(self.ward, current_month(ctl, today_m))
+            loaded = load_roster(self.ward, current_month(ctl, today_m), ctl)
             if loaded:
                 staff = [Staff(n, n, (n,)) for n in loaded[1].names]
         return ctl, staff
 
     def _roster(self, month: Month) -> RosterBase | None:
-        loaded = load_roster(self.ward, month)
+        loaded = load_roster(self.ward, month, getattr(self, "_ctl", None))
         if loaded is None:
             return None
         self._tab = loaded[0]

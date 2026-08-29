@@ -123,3 +123,23 @@ def test_whole_day_swap(grid):
     # off day → clear message
     off = check_swap(grid, codes, Staff("ธนดล", "ธนดล"), 12, "all", b, 7, "all", "live")
     assert not off.ok and "ไม่มีเวรให้แลก" in off.reason
+
+
+def test_tab_title_prefers_pinned_over_rightmost(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from agent.sheets import layout as L
+
+    monkeypatch.setenv("ROSTER_LAYOUT", "grid")
+    from agent.settings import get_settings
+
+    get_settings.cache_clear()
+    ward = MagicMock()
+    ward.sheet_titles.return_value = ["กันยายน2569 (แลก5)", "กันยายน2569", "กันยายน2569 (แลก4)"]  # live moved to front
+    ward.tab.side_effect = lambda t: MagicMock() if t in ward.sheet_titles.return_value else None
+    # without a pin the rightmost (stale) tab wins — the bug
+    assert L.tab_title(ward, M, {}) == "กันยายน2569 (แลก4)"
+    # pinned in _control → correct tab regardless of order
+    assert L.tab_title(ward, M, {"tab:2569-09": "กันยายน2569 (แลก5)"}) == "กันยายน2569 (แลก5)"
+    # pin pointing at a deleted tab falls back
+    assert L.tab_title(ward, M, {"tab:2569-09": "หายไป"}) == "กันยายน2569 (แลก4)"

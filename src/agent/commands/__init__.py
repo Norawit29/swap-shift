@@ -8,7 +8,7 @@ from datetime import date
 
 from ..line import templates as T
 from ..sheets.client import Ward
-from ..sheets.control import active_months, month_status, read_control, set_status
+from ..sheets.control import active_months, month_status, read_control, set_control, set_status
 from ..sheets.drift import build_diff
 from ..sheets.protection import protect_tab
 from ..sheets.layout import load_roster
@@ -54,7 +54,7 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
     codes = load_shifts()
     ctl = read_control(ward)
     status = month_status(ctl, m)
-    loaded = load_roster(ward, m)
+    loaded = load_roster(ward, m, ctl)
     if cmd.name in ("ตรวจตาราง", "ประกาศตาราง") and loaded is None:
         return f"ไม่พบแท็บของเดือน {m.label}"
     if cmd.name == "ตรวจตาราง":
@@ -74,6 +74,7 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
         protect_tab(ward, title)
         protect_tab(ward, planned)
         _hide(ward, [planned])  # tab is moved to the front only on go-live (day 1), not at publish
+        set_control(ward, {f"tab:{m.key}": title})  # pin: tab order changes later, resolution must not
         set_status(ward, m, "published", by=by_display)
         return T.published(m, ward.tab_url(title))
     if cmd.name == "ปิดตาราง":
@@ -81,7 +82,7 @@ def run_admin(cmd: Command, ward: Ward, by_display: str, today: date | None = No
             return f"ตาราง {m.label} สถานะ {status or 'ไม่มี'} ปิดไม่ได้"
         n, per = build_diff(ward, m)
         set_status(ward, m, "closed", by=by_display)
-        t = tab_title_for(ward, m)
+        t = tab_title_for(ward, m, ctl)
         if t:
             _hide(ward, [f"{t}_diff"])
         return T.closed(m, n, [f"• {k}: {v}" for k, v in sorted(per.items(), key=lambda kv: -kv[1])])
@@ -105,7 +106,7 @@ def roster_link(ward: Ward, arg: str, today: date | None = None) -> str:
         return f"ไม่เข้าใจเดือน \"{arg}\" ค่ะ เช่น ตารางเวร ต.ค. หรือ ตารางเวร 2569-10"
     if m is None:
         m = cur
-    title = tab_title(ward, m)
+    title = tab_title(ward, m, ctl)
     if title is None:
         return f"ยังไม่มีตารางเดือน {m.label} ค่ะ"
     status = month_status(ctl, m)
@@ -134,10 +135,10 @@ def _hide(ward: Ward, titles: list[str]) -> None:
                 log.warning("hide %s failed: %s", t, e)
 
 
-def tab_title_for(ward: Ward, m: Month) -> str | None:
+def tab_title_for(ward: Ward, m: Month, control: dict[str, str] | None = None) -> str | None:
     from ..sheets.layout import tab_title
 
-    return tab_title(ward, m)
+    return tab_title(ward, m, control)
 
 
 def go_live(ward: Ward, today: date) -> list[str]:
@@ -148,7 +149,7 @@ def go_live(ward: Ward, today: date) -> list[str]:
         m = Month.from_key(key)
         if ctl.get(f"status:{key}") == "published" and m.first_date() <= today:
             set_status(ward, m, "live")
-            t = tab_title_for(ward, m)
+            t = tab_title_for(ward, m, ctl)
             if t:
                 bring_to_front(ward, t)
             out.append(key)
