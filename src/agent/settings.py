@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     cache_ttl: float = 60        # seconds: sheet metadata / _control / _audit reads
     cache_ttl_roster: float = 10  # seconds: month roster values (kept short — commit re-checks the cells anyway)
     cache_ttl_static: float = 600  # seconds: _staff, _planned, cell colours
+    ask_night_with_afternoon: bool = True  # บ่ายกับดึกมักเป็นคนเดียวกัน → ถามยืนยันก่อน
     internal_cron: bool = True  # run expire/drift/go-live from inside the process (no external scheduler needed)
     tz: str = "Asia/Bangkok"  # table (PLAN §4) | grid (ER attending week-block sheet)
     clarify_window_min: int = 10

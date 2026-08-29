@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -102,6 +103,10 @@ class ChangeService:
 
     # ── swap report ─────────────────────────────────────────────
     def handle_swap_report(self, msg: Incoming, prior: ChangeRequest | None = None) -> Reply:
+        if prior is not None and (prior.llm_extraction or {}).get("night_prompt") == "asked":
+            answered = self._answer_night_prompt(prior, msg)
+            if answered is not None:
+                return answered  # deterministic yes/no — no re-extraction
         ctl, staff = self._ctx()
         months = active_months(ctl)
         text = f"{prior.raw_text}\n{msg.text}" if prior else msg.text
@@ -177,6 +182,9 @@ class ChangeService:
         if roster is None:
             transition(cr, "REJECTED")
             return self._no_roster_reply(a_m)
+        q = self._night_question(cr, roster, a, b, give)
+        if q is not None:
+            return q
         res = check_swap(roster, self.codes, a, cr.a_day, _shift_arg(cr.a_shift, self.codes), b, cr.b_day,
                          _shift_arg(cr.b_shift, self.codes), month_status(ctl, a_m))
         if res.ok:  # record the concrete codes (resolves "all")
@@ -187,6 +195,72 @@ class ChangeService:
         if multi:
             reply.extra.append(T.MULTI_NOTE)
         return reply
+
+    # ── บ่าย → ถามว่าเอาดึกด้วยไหม ───────────────────────────────
+    def _night_sides(self, cr: ChangeRequest, roster, a: Staff, b: Staff, give: bool) -> list[tuple[str, Staff, int]]:
+        """Sides asking for บ่าย only where that person also holds ดึก that day."""
+        if not self.settings.ask_night_with_afternoon:
+            return []
+        out = []
+        for side, who, day, shift in (("a", a, cr.a_day, cr.a_shift), ("b", b, cr.b_day, cr.b_shift)):
+            if side == "b" and give:
+                continue
+            if shift != "บ" or day is None or not roster.has(who.staff_id):
+                continue
+            if "ด" in self.codes.parse_cell(roster.cell(who.staff_id, day)):
+                out.append((side, who, day))
+        return out
+
+    def _night_question(self, cr: ChangeRequest, roster, a: Staff, b: Staff, give: bool) -> Reply | None:
+        if (cr.llm_extraction or {}).get("night_prompt"):  # asked (and answered) already
+            return None
+        sides = self._night_sides(cr, roster, a, b, give)
+        if not sides:
+            return None
+        m = roster.month
+        who = " และ ".join(f"{w.display} วันที่ {fmt_day(m, d)}" for _, w, d in sides)
+        cr.llm_extraction = {**(cr.llm_extraction or {}), "night_prompt": "asked",
+                             "night_sides": [s for s, _, _ in sides]}
+        cr.state = "PENDING_CLARIFICATION"
+        cr.touch_expiry(self.settings.change_ttl_hours)
+        self.db.flush()
+        return Reply(f"❓ {who} อยู่เวร{self.codes.label('บ')}และ{self.codes.label('ด')} "
+                     f"— ต้องการแลก{self.codes.label('ด')}ด้วยไหมคะ (ตอบ \"ใช่\" หรือ \"เฉพาะบ่าย\")")
+
+    def _answer_night_prompt(self, cr: ChangeRequest, msg: Incoming) -> Reply | None:
+        """'ใช่' → add ดึก to the sides we asked about; 'เฉพาะบ่าย' → keep as is; anything else → None."""
+        want = _yes_no_night(msg.text, self.codes)
+        if want is None:
+            return None
+        sides = (cr.llm_extraction or {}).get("night_sides", [])
+        cr.llm_extraction = {**(cr.llm_extraction or {}), "night_prompt": "answered"}
+        if want:
+            for side in sides:
+                if side == "a":
+                    cr.a_shift = self.codes.serialize(["บ", "ด"])
+                else:
+                    cr.b_shift = self.codes.serialize(["บ", "ด"])
+        cr.raw_text = f"{cr.raw_text}\n{msg.text}"
+        cr.touch_expiry(self.settings.change_ttl_hours)
+        return self._recheck_swap(cr, msg)
+
+    def _recheck_swap(self, cr: ChangeRequest, msg: Incoming) -> Reply:
+        """Run the consistency check from the fields already stored on the request (no LLM)."""
+        ctl, staff = self._ctx()
+        m = Month.from_key(cr.month)
+        roster = self._roster(m)
+        if roster is None:
+            transition(cr, "REJECTED")
+            return self._no_roster_reply(m)
+        a, b = _staff_of(staff, cr.a_staff_id), _staff_of(staff, cr.b_staff_id)
+        give = cr.swap_type == "give"
+        res = check_swap(roster, self.codes, a, cr.a_day, _shift_arg(cr.a_shift, self.codes), b, cr.b_day,
+                         _shift_arg(cr.b_shift, self.codes), month_status(ctl, m))
+        if res.ok:
+            cr.a_shift = self.codes.serialize(res.a_codes)
+            if not give:
+                cr.b_shift = self.codes.serialize(res.b_codes)
+        return self._finish_check(cr, res, msg)
 
     # ── roster edit ─────────────────────────────────────────────
     def handle_edit(self, msg: Incoming, prior: ChangeRequest | None = None) -> Reply:
@@ -352,6 +426,35 @@ def expire_all(db: Session) -> list[ChangeRequest]:
         transition(cr, "EXPIRED")
         out.append(cr)
     return out
+
+
+_YES = ("ใช่", "ค่ะ", "ครับ", "เอา", "ด้วย", "ทั้งคู่", "ทั้งสอง", "ok", "โอเค", "ยืนยัน", "จ้า", "จ้า", "ถูก")
+_NO = ("ไม่", "เฉพาะ", "แค่", "อย่างเดียว", "บ่ายเดียว")
+
+
+def _yes_no_night(text: str, codes) -> bool | None:
+    """Answer to 'เอาดึกด้วยไหม' → True / False / None (unrecognised → fall back to the LLM)."""
+    t = re.sub(r"[\s!?.]+", "", (text or "")).lower()
+    if not t:
+        return None
+    words = codes.from_words(t)
+    if words:  # answered with shift words: 'บ่ายดึก' → yes, 'บ่าย' → no
+        if "ด" in words:
+            return True
+        if words == ["บ"]:
+            return False
+    if any(w in t for w in _NO):
+        return False
+    if any(t.startswith(w) or t == w for w in _YES):
+        return True
+    return None
+
+
+def _staff_of(staff: list[Staff], sid: str | None) -> Staff:
+    for s in staff:
+        if s.staff_id == sid:
+            return s
+    return Staff(sid or "", sid or "", (sid or "",))
 
 
 def _norm_shift(v: str | None, codes) -> str | None:

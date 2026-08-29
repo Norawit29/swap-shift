@@ -76,6 +76,7 @@ Month accepted as `2569-10`, `10/2569`, `ต.ค.`, `ตุลาคม`, `ต.�
 "แลกเวรดึก 3 ต.ค. ของศรี กับ เช้า 5 ต.ค. ของบี" → summary + [ยืนยัน] [ยกเลิก] (Quick Reply; typing ยืนยัน/ยกเลิก also
 works). Only the reporter can confirm; 2 h TTL. Mismatch → reply shows the real roster value, no buttons.
 Whole-day swap: "แลกทั้งวัน 3 ต.ค. ของศรี กับ 5 ต.ค. ของบี" / "ศรีแลกวันที่ 3 กับบีวันที่ 5" moves every shift each person holds that day in one request.
+Rule: a swap of `บ่าย` alone is confirmed first — if that person also holds `ดึก` that day the bot asks "ต้องการแลกดึกด้วยไหมคะ" (answer ใช่ / เฉพาะบ่าย, handled without the LLM). Turn it off with `ASK_NIGHT_WITH_AFTERNOON=false`.
 Rule: `conference` is exchanged only with another `conference` slot (no give, no mixing with ช/บ/ด).
 Head nurse single-cell edit: "เปลี่ยนพี่ศรี วันที่ 5 เป็นดึก", "บี วันที่ 12 หยุด".
 

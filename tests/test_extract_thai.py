@@ -227,3 +227,55 @@ def test_multi_code_shift_string(roster_values):
     ward, llm = _svc(roster_values, FakeLLM(swap=bad))
     with session() as db:
         assert "รหัสเวรไม่ถูกต้อง" in ChangeService(ward, llm, db).handle_swap_report(Incoming("C1", "U1", "ศรี", "x", TODAY)).text
+
+
+EX_PM = {**EX_SWAP, "a_name": "ศรี", "a_day": 3, "a_shift": "บ", "b_name": "บี", "b_day": 5, "b_shift": "บ"}
+# ศรี วันที่ 3 = บ+ด (ควรถูกถามเรื่องดึก), บี วันที่ 5 = บ อย่างเดียว
+PM_ROWS = [["staff_id", "name", "1", "2", "3", "4", "5", "6", "7"],
+           ["N001", "ศรี", "ช", "", "บด", "", "", "ช", ""],
+           ["N002", "บี", "", "ช", "", "ด", "บ", "", "ช"]]
+
+
+def test_afternoon_asks_about_night_then_yes():
+    ward, llm = _svc(PM_ROWS, FakeLLM(swap=EX_PM))
+    with session() as db:
+        svc = ChangeService(ward, llm, db)
+        r = svc.handle_swap_report(Incoming("C1", "U1", "ศรี", "แลกเวรบ่าย 3 กับ บ่าย 5", TODAY))
+        assert r.quick_reply_id is None and "ต้องการแลกดึกด้วยไหมคะ" in r.text and "ศรี" in r.text
+        pending = svc.open_request("U1")
+        assert pending.state == "PENDING_CLARIFICATION"
+        r2 = svc.handle_swap_report(Incoming("C1", "U1", "ศรี", "ใช่ค่ะ", TODAY), pending)
+        assert r2.quick_reply_id, r2.text
+        assert "3 ต.ค. บ่าย: ศรี → บี" in r2.text and "3 ต.ค. ดึก: ศรี → บี" in r2.text
+        assert "5 ต.ค. บ่าย: บี → ศรี" in r2.text and "ดึก: บี" not in r2.text  # บี ไม่มีดึกวันนั้น
+
+
+def test_afternoon_only_answer():
+    ward, llm = _svc(PM_ROWS, FakeLLM(swap=EX_PM))
+    with session() as db:
+        svc = ChangeService(ward, llm, db)
+        svc.handle_swap_report(Incoming("C1", "U1", "ศรี", "x", TODAY))
+        pending = svc.open_request("U1")
+        r = svc.handle_swap_report(Incoming("C1", "U1", "ศรี", "เฉพาะบ่าย", TODAY), pending)
+        assert r.quick_reply_id and "ดึก" not in r.text and pending.a_shift == "บ"
+
+
+def test_no_question_when_person_has_no_night():
+    rows = [r[:] for r in PM_ROWS]
+    rows[1][4] = "บ"  # ศรี วันที่ 3 = บ อย่างเดียว
+    ward, llm = _svc(rows, FakeLLM(swap=EX_PM))
+    with session() as db:
+        r = ChangeService(ward, llm, db).handle_swap_report(Incoming("C1", "U1", "ศรี", "x", TODAY))
+        assert r.quick_reply_id and "ต้องการแลกดึก" not in r.text
+
+
+def test_night_answer_words():
+    from agent.change.service import _yes_no_night
+    from agent.shifts import load_shifts
+
+    c = load_shifts()
+    for t in ("ใช่", "ใช่ค่ะ", "เอาด้วย", "ok", "โอเคครับ", "บ่ายดึก", "ทั้งคู่"):
+        assert _yes_no_night(t, c) is True, t
+    for t in ("ไม่", "ไม่เอา", "เฉพาะบ่าย", "แค่บ่าย", "บ่ายอย่างเดียว", "บ่าย"):
+        assert _yes_no_night(t, c) is False, t
+    assert _yes_no_night("เดี๋ยวถามพี่ก่อน", c) is None  # ไม่เข้าใจ → กลับไปใช้ LLM
